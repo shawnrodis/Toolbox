@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -72,9 +73,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.exifinterface.media.ExifInterface
 import com.shawnrodis.toolbox.data.AppStore
-import com.shawnrodis.toolbox.ui.cacheSharedFile
-import com.shawnrodis.toolbox.ui.saveImageToPictures
-import com.shawnrodis.toolbox.ui.shareUri
+import com.shawnrodis.toolbox.ui.saveFileToDownloads
 import com.shawnrodis.toolbox.ui.toast
 import com.shawnrodis.toolbox.ui.ToolCardHeader
 import kotlinx.coroutines.Dispatchers
@@ -104,7 +103,10 @@ import kotlin.math.roundToInt
  *    the source's own swatch presets plus a hex field (same values).
  *  - Canvas ctx.filter blur is approximated by a cover-fit downscale/
  *    upscale pass (strength mapped from the same slider value).
- *  - The web download becomes: save to Pictures (MediaStore) + share sheet.
+ *  - The web download becomes: save straight to the Downloads folder
+ *    (MediaStore.Downloads; legacy public Downloads dir on API <= 28) with
+ *    an "Exported <name>" toast — no share sheet (v1.0.6, at the owner's
+ *    request; previously it saved to Pictures and opened the share sheet).
  */
 
 private val SQ_SWATCHES = listOf(
@@ -351,10 +353,32 @@ fun SquarePicContent(modifier: Modifier = Modifier) {
             val blurredBg = remember(img, blur) {
                 if (blur > 0f) makeBlurredCover(img, blur.toDouble(), SQ_PREVIEW) else null
             }
+            // v1.0.6 (defect: the preview was not the square): the Canvas used
+            // to sit bare in the column. Its layout box WAS square
+            // (fillMaxWidth + aspectRatio(1f)), but a Compose Canvas does NOT
+            // clip its drawing to its bounds — while the source's sqDraw()
+            // geometry deliberately draws the cover/fill rects past the edges
+            // and the HTML <canvas> element clips them itself. The blurred
+            // backdrop and the zoomed photo therefore painted outside the
+            // square, over the hint texts and controls around the preview,
+            // and the blur branch additionally drew the pre-composed square
+            // blurred bitmap through the source-photo cover rect (a double
+            // cover), so the preview composition differed from the export.
+            // Now: a centred outer box, the source's 520 max width, ONE
+            // square Canvas clipped to the source's rounded corners, an
+            // explicit clipRect in the draw scope, and the blurred
+            // background drawn 1:1 into the square exactly as the export
+            // renderer (renderSquareBitmap) draws it.
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
             Canvas(
                 modifier = Modifier
+                    .widthIn(max = 520.dp)
                     .fillMaxWidth()
                     .aspectRatio(1f)
+                    .clip(RoundedCornerShape(12.dp))
                     .pointerInput(img) {
                         detectDragGestures { change, drag ->
                             change.consume()
@@ -369,6 +393,11 @@ fun SquarePicContent(modifier: Modifier = Modifier) {
                         }
                     }
             ) {
+                // Confine ALL drawing to the square: the source geometry
+                // intentionally overflows the canvas rect (cover/fill); the
+                // HTML canvas clipped it, this Canvas must clip it itself.
+                drawContext.canvas.save()
+                drawContext.canvas.clipRect(0f, 0f, size.width, size.height)
                 val s = size.width
                 val si = s.toInt().coerceAtLeast(1)
                 val iw = img.width
@@ -376,15 +405,29 @@ fun SquarePicContent(modifier: Modifier = Modifier) {
                 // background
                 when (mode) {
                     "blur" -> {
-                        val bg = (blurredBg ?: img).asImageBitmap()
-                        val r = sqBackgroundCoverRect(iw, ih, si)
-                        drawImage(
-                            bg,
-                            srcOffset = IntOffset.Zero,
-                            srcSize = IntSize(bg.width, bg.height),
-                            dstOffset = IntOffset(r.left.roundToInt(), r.top.roundToInt()),
-                            dstSize = IntSize(r.width.roundToInt(), r.height.roundToInt())
-                        )
+                        if (blurredBg != null) {
+                            // makeBlurredCover() already cover-composes the
+                            // photo into a square bitmap: draw it 1:1 into
+                            // the preview square, exactly as the export does.
+                            val bg = blurredBg.asImageBitmap()
+                            drawImage(
+                                bg,
+                                srcOffset = IntOffset.Zero,
+                                srcSize = IntSize(bg.width, bg.height),
+                                dstOffset = IntOffset.Zero,
+                                dstSize = IntSize(si, si)
+                            )
+                        } else {
+                            // blur = 0: the plain cover-fit photo, as in sqDraw().
+                            val r = sqBackgroundCoverRect(iw, ih, si)
+                            drawImage(
+                                img.asImageBitmap(),
+                                srcOffset = IntOffset.Zero,
+                                srcSize = IntSize(iw, ih),
+                                dstOffset = IntOffset(r.left.roundToInt(), r.top.roundToInt()),
+                                dstSize = IntSize(r.width.roundToInt(), r.height.roundToInt())
+                            )
+                        }
                     }
                     "solid" -> drawRect(solid, size = Size(s, s))
                     else -> {
@@ -419,6 +462,8 @@ fun SquarePicContent(modifier: Modifier = Modifier) {
                         style = Stroke(width = bw)
                     )
                 }
+                drawContext.canvas.restore()
+            }
             }
             Text(
                 "Drag the photo to reposition · use the zoom slider below for finer control",
@@ -554,15 +599,14 @@ fun SquarePicContent(modifier: Modifier = Modifier) {
                                     bos.toByteArray()
                                 }
                                 val name = sqExportFilename(fileName)
+                                // v1.0.6: straight to Downloads, no share sheet
+                                // (the web build downloads the file; the owner
+                                // asked for the same here).
                                 val saved = withContext(Dispatchers.IO) {
-                                    saveImageToPictures(context, name, bytes, "image/png")
+                                    saveFileToDownloads(context, name, "image/png", bytes)
                                 }
                                 if (saved) {
                                     toast(context, "Exported $name")
-                                    val uri = withContext(Dispatchers.IO) {
-                                        cacheSharedFile(context, name, bytes)
-                                    }
-                                    if (uri != null) shareUri(context, uri, "image/png", name, null)
                                 } else {
                                     toast(context, "Export failed.")
                                 }

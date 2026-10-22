@@ -3,6 +3,7 @@ package com.shawnrodis.toolbox.tools
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -10,9 +11,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -638,7 +643,7 @@ fun PdfToolsContent(store: AppStore, modifier: Modifier = Modifier) {
                                 splitRangeText = PageRanges.rangeFieldText(sel)
                             }
                             "rotate" -> RotatePreview(context, first, previewScale, rotationAngle)
-                            "imgtopdf" -> ImagesToPdfPreview(context, queue)
+                            "imgtopdf" -> ImagesToPdfPreview(context, queue, previewScale)
                             else -> GenericPreview(context, first, previewScale)
                         }
                     }
@@ -724,7 +729,12 @@ private fun SplitPreview(
                             .padding(6.dp)
                     ) {
                         thumb?.let {
-                            Image(it.asImageBitmap(), contentDescription = "Page $page")
+                            // Source canvas is capped by max-w-full inside its
+                            // grid cell; fill the cell width the same way.
+                            Image(
+                                it.asImageBitmap(), contentDescription = "Page $page",
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                         Surface(
                             shape = RoundedCornerShape(4.dp),
@@ -750,6 +760,69 @@ private fun SplitPreview(
     }
 }
 
+/**
+ * v1.0.6 (defect: live preview was a tiny thumbnail): the port rendered the
+ * page with the source's literal pdf.js viewport factor (0.5 x previewScale
+ * -> a ~306px-wide bitmap for a Letter page) and the Compose Image then
+ * displayed that bitmap at its INTRINSIC size — 306 device px is only
+ * ~65-100dp on a high-density phone, centred in an otherwise empty card.
+ * In the source the same canvas displays at 306 CSS px inside a wide
+ * desktop pane (CSS max-width: 100%), and the preview-scale slider scales
+ * that display up to 3x. The slider here previously changed only the render
+ * resolution, never the displayed size.
+ *
+ * BigPagePreview is the phone equivalent of the source's model: display
+ * width = the preview card's inner width at previewScale 1.0, multiplied
+ * by previewScale, centred when narrower than the card and horizontally
+ * scrollable when wider (the source's wrapper is overflow-auto). Display
+ * size is set explicitly (width + aspectRatio), never left to the bitmap's
+ * intrinsic size.
+ */
+@Composable
+private fun BigPagePreview(bitmap: Bitmap, previewScale: Float, contentDescription: String?) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val containerW = maxWidth
+        val displayW = containerW * previewScale
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            contentAlignment = Alignment.Center
+        ) {
+            // Strip at least one card-width wide so sub-1.0 scales stay centred.
+            Box(
+                modifier = Modifier.width(displayW.coerceAtLeast(containerW)),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    bitmap.asImageBitmap(),
+                    contentDescription = contentDescription,
+                    modifier = Modifier
+                        .width(displayW)
+                        .aspectRatio(bitmap.width.toFloat() / bitmap.height.toFloat())
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Render factor for the big previews: high enough that the full-card-width
+ * display stays crisp on high-density screens (the old 0.5 factor is the
+ * "tiny thumbnail" bitmap), capped so very large scales cannot allocate an
+ * unbounded bitmap.
+ */
+private fun bigPreviewRenderScale(previewScale: Float): Double =
+    (1.5 * previewScale).coerceAtMost(3.0)
+
+/** Display-only rotation of a rendered page (source: CSS rotate transform). */
+private fun rotateBitmapForDisplay(src: Bitmap, angle: Int): Bitmap {
+    val a = ((angle % 360) + 360) % 360
+    if (a == 0) return src
+    val m = Matrix().apply { postRotate(a.toFloat()) }
+    return Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
+}
+
 /** renderRotateLivePreview(): first page, CSS-rotated by the chosen angle. */
 @Composable
 private fun RotatePreview(context: Context, file: QueuedFile?, previewScale: Float, angle: Int) {
@@ -767,20 +840,20 @@ private fun RotatePreview(context: Context, file: QueuedFile?, previewScale: Flo
         }
         return
     }
-    val bmp = rememberPdfPageBitmap(context, file, 0, 0.5 * previewScale)
+    val bmp = rememberPdfPageBitmap(context, file, 0, bigPreviewRenderScale(previewScale))
     bmp?.let {
-        Image(
-            it.asImageBitmap(), contentDescription = file.name,
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer { rotationZ = angle.toFloat() }
-        )
+        // v1.0.6: rotate the rendered page itself (the source rotates the
+        // canvas with a CSS transform; rotating the bitmap gives the same
+        // live visual with a correct layout footprint), then show it BIG
+        // via BigPagePreview instead of at the bitmap's intrinsic size.
+        val shown = remember(it, angle) { rotateBitmapForDisplay(it, angle) }
+        BigPagePreview(shown, previewScale, file.name)
     }
 }
 
 /** renderImagesToPdfPreview(): image thumbs captioned "Page i". */
 @Composable
-private fun ImagesToPdfPreview(context: Context, queue: List<QueuedFile>) {
+private fun ImagesToPdfPreview(context: Context, queue: List<QueuedFile>, previewScale: Float) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         queue.chunked(3).forEach { rowFiles ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -795,7 +868,8 @@ private fun ImagesToPdfPreview(context: Context, queue: List<QueuedFile>) {
                             bmp?.let {
                                 Image(
                                     it.asImageBitmap(), contentDescription = f.name,
-                                    modifier = Modifier.heightIn(max = 120.dp)
+                                    // Source: max-height 120 x preview scale.
+                                    modifier = Modifier.heightIn(max = (120 * previewScale).dp)
                                 )
                             }
                         }
@@ -827,9 +901,11 @@ private fun GenericPreview(context: Context, file: QueuedFile?, previewScale: Fl
         return
     }
     if (file.isPdf()) {
-        val bmp = rememberPdfPageBitmap(context, file, 0, 0.5 * previewScale)
+        // v1.0.6: same big-preview treatment as Rotate (was the same
+        // intrinsic-size tiny bitmap at the old 0.5 render factor).
+        val bmp = rememberPdfPageBitmap(context, file, 0, bigPreviewRenderScale(previewScale))
         bmp?.let {
-            Image(it.asImageBitmap(), contentDescription = file.name, modifier = Modifier.fillMaxWidth())
+            BigPagePreview(it, previewScale, file.name)
         }
     }
 }

@@ -5,6 +5,46 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-22):** **v1.0.6** — versionCode 11, versionName `1.0.6`.
+  Three on-device fixes, all in tool previews/exports (Shawn, v1.0.5
+  screenshots):
+  (1) **Square Pic export goes straight to Downloads** — the Export button
+  previously saved the PNG to Pictures via MediaStore and then opened the
+  Android share sheet (cacheSharedFile + shareUri). It now saves directly
+  to the **Downloads** folder via the existing `saveFileToDownloads`
+  helper (MediaStore.Downloads + RELATIVE_PATH=DIRECTORY_DOWNLOADS on API
+  29+, legacy public Downloads dir under the existing WRITE_EXTERNAL_STORAGE
+  maxSdk-28 permission below that), keeps the `<base>_square.png` filename
+  and the "Exported <name>" toast, and fires NO chooser. This matches the
+  web build, whose export is a plain browser download.
+  (2) **Square Pic preview is a true square again** — v1.0.5's preview
+  Canvas had a square layout box (fillMaxWidth + aspectRatio(1f)) but a
+  Compose Canvas does not clip its drawing to its bounds, and the source
+  geometry deliberately overflows the square (cover/fill rects), relying on
+  the HTML canvas element to clip. The blurred backdrop and zoomed photo
+  painted over the hint texts and the Background/Photo controls, and the
+  blur branch double-applied the cover rect to the pre-composed square
+  blurred bitmap, so preview ≠ export. Fix: centred outer box, source's
+  520 max width, the one square Canvas clipped to rounded corners plus an
+  explicit clipRect in the draw scope, blurred background drawn 1:1 into
+  the square like the export renderer; drag-to-reposition unchanged
+  (same SquareGeometry maths for preview and export).
+  (3) **PDF Tools live preview is big and readable** — Rotate/Generic
+  previews rendered the page at the source's literal pdf.js factor
+  (0.5 × previewScale → a ~306px-wide Letter bitmap) and displayed it at
+  intrinsic size (~65–100dp on a high-density phone, centred in an empty
+  card); the preview-scale slider only changed render resolution, never
+  display size. New `BigPagePreview`: display width = the preview card's
+  inner width at scale 1.0 × previewScale (centred when narrower,
+  horizontally scrollable when wider — the source wrapper is
+  overflow-auto), render factor raised to 1.5 × previewScale (capped 3.0).
+  Rotate shows the rotation live by rotating the rendered page bitmap
+  (the source's CSS-transform equivalent, with a correct layout
+  footprint). Split grid thumbs now fill their cell width (source:
+  max-w-full); Images-to-PDF thumbs take the source's 120 × scale height
+  cap; Merge rows keep their small thumbs, as in the source.
+  Version alignment: native Settings footer "Version 1.0.6"; both HTML
+  editions restamped 1.0.5 → 1.0.6 (same 3 lines each, diff-verified).
 - **Status (2026-10-22):** **v1.0.5** — versionCode 10, versionName `1.0.5`,
   clean `gradlew clean assembleDebug` + `testDebugUnitTest` verified
   (37 unit tests, 0 failures). Desktop Mode tray parity fix (Shawn
