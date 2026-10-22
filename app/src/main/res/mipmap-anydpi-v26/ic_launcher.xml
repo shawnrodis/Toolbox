@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon (API 26+): near-black background matching the artwork's
+     edges (#18181A sampled from the source JPG), original artwork as the
+     foreground (scaled to 90% of the canvas in the generated PNGs so the
+     centred briefcase survives circle/squircle launcher masks).
+     Artwork: Shawn's official Toolbox icon, not redrawn or recolored. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>

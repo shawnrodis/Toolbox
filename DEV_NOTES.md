@@ -1,0 +1,315 @@
+# Toolbox Native — True-Native Android Rebuild
+
+A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
+
+- **Package (placeholder, can change):** `com.shawnrodis.toolbox`
+- **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
+  Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-22):** **v1.0.4** — versionCode 9, versionName `1.0.4`.
+  Shopping items now sync: `toolbox_shop_items` was appended to SYNC_KEYS
+  (26 keys) at the owner's direction on 2026-10-22, overriding the HTML
+  original's exclusion; protocol otherwise unchanged. SYNC_SERVER.md's
+  key list and reference-server allowlist updated to match.
+- **Status (2026-10-22):** **v1.0.3 public-release prep** — versionCode 8,
+  versionName `1.0.3`. The sync server URL is no longer built into the
+  app: it is a user-entered setting (Settings → Sync Across Devices →
+  "Sync Server URL", stored under `toolbox_sync_url`, default empty),
+  exactly like the sync token. With no URL (or no token) saved, sync is
+  unconfigured — no network calls, and the status line / Sync Now toast
+  prompt the user to enter their sync server address and token. With
+  both present, sync behaviour is unchanged (same 25-key SYNC_KEYS list,
+  {token, updates, deleted} push body, token in header + body, 2.5s
+  debounce, interval options, server-newer-wins pull). The whole
+  project tree was grep-scrubbed for the previously built-in endpoint
+  (host and port): zero hits. API keys (Gemini/Aviationstack) remain
+  user-entered only; no key literals exist in the source.
+- **Status (2026-10-22):** **v1.0.2 fix build** — versionCode 7,
+  versionName `1.0.2`, clean `gradlew clean assembleDebug` +
+  `testDebugUnitTest` verified (32 unit tests, 0 failures; 4 new in
+  V102FixTest). Fixes from Shawn's on-device review of 1.0.1:
+  (A) **Tool card header text sliver** — the v1.0.1 header Row let the
+  unweighted button group claim its full intrinsic width first,
+  crushing the weighted title/description column to ~20-60dp on a
+  portrait phone (mid-word wrap ribbons). The header now measures via
+  a Layout (`ToolHeaderRow` + pure `headerSingleRow`): single row only
+  when the text column keeps ≥120dp, otherwise the buttons wrap onto
+  their own right-aligned row under the title block; wide/desktop
+  stays a single row. (B) **PickerField single-line** — the dropdown
+  anchor was a multi-line OutlinedTextField (no singleLine), so long
+  values wrapped into 5-line-tall boxes; the anchor is now a fixed
+  56dp outlined container (OutlinedTextFieldDefaults.Container, real
+  field border/shape/focus highlight) holding a maxLines=1 ellipsized
+  Text + chevron, exactly like an HTML <select>. All fields inherit it
+  (PickerField is the only dropdown implementation). (C) **Safe
+  insets** — both shells now apply `WindowInsets.safeDrawing`
+  (status bar + display cutout + navigation bar): the mobile shell's
+  root Column (with Scaffold content insets zeroed to avoid double
+  padding) and the Desktop shell's root Column (background stays
+  edge-to-edge, so the taskbar clears the Android nav bar, icons clear
+  the landscape cutout, and the screen widget clears the status bar).
+  Fullscreen/immersive ON hides the bars, the insets collapse to zero
+  and both shells expand full-screen, as in the source. (D) **Snap
+  panel + FAB clearance** — the snap-layouts panel was fixed at 320·s
+  wide for ~460·s of tiles (rightmost tiles clipped at every scale);
+  it is now content-sized via pure `snapPanelWidthDp`/`snapTilesPerRow`
+  (253dp at s=0.55 on a 780dp-wide phone, all six tiles in one row),
+  clamped to the desktop area with tiles wrapping to a second row when
+  clamped. Tool screens (ToolScreen, Flight/PDF content, Square Pic)
+  and the home List/Android grids get 88dp bottom clearance in the
+  mobile shell (52dp FAB + 16dp margin + gap; 8dp in windows), and
+  Currency's exchange-rate status text now wraps inside its summary
+  box. Prior: **v1.0.1 fix build** — versionCode 6,
+  versionName `1.0.1`, clean `gradlew clean assembleDebug` +
+  `testDebugUnitTest` verified (28 unit tests, 0 failures). Fixes from
+  Shawn's on-device review of 1.0.0: (1) **Settings is no longer a
+  tile** — one shared display list mirrors the source's
+  `sortedToolsForDisplay()` (excludes tab-settings/tab-home) and drives
+  the home views, Quick Switcher, Start menu and desktop icons; Settings
+  is reached via the global header gear or the Desktop taskbar gear.
+  (2) **Global header added** to the mobile shell (the source's
+  #app-header, hidden in Desktop Mode): brand block + Fullscreen /
+  Desktop / Settings / Sound buttons, DYNAMIC title (home = "Toolbox" /
+  "Shawn Rodis"; any tool = registry name / "Toolbox Utility"), manual
+  desktop toggle wins over landscape auto-desktop. (3) **Desktop Mode
+  display scaling** — the source's `wmApplyScale` is implemented
+  (s = clamp(min(w/1600, h/900), 0.55, 1.3); s = 0.55 on a 780×360dp
+  landscape phone) and sizes all desktop chrome (taskbar 54·s, icon
+  cards 108·s×100·s in the source's column-major A-Z flow, titlebars,
+  Start menu, snap panel, widget, menus); window geometry/defaults use
+  the source's `defaultRect()` + MIN_W/MIN_H in real dp. (4) **Tool
+  card headers** — every tool opens with the source's in-card header
+  block (accent icon box, per-tool H2 + 11px description, tool-specific
+  header buttons like Currency's Clear/Refresh, and the Share/JPG/PDF
+  trio with fa-share-nodes emerald / fa-file-image sky / fa-file-pdf
+  rose); the bottom export pill row and all Material TopAppBars are
+  gone. (5) **Field-layout audit** — labels above fields app-wide
+  (Currency's paired From/To Amount|Country rows + EXCHANGE RATE box
+  with the status inside, Time's paired 12h/zone row, Unit Converter's
+  source labels + swap icon, PTO's source labels, Tip's slider badge
+  row). Prior: **FINAL PARITY PASS complete** — versionCode 5,
+  versionName `1.0.0-parity`, clean `gradlew clean assembleDebug` +
+  `testDebugUnitTest` verified (22 unit tests, 0 failures). All 14 tools
+  are live, and the parity items are in: home view styles (List / iPhone
+  pager / Android drawer with the source's tiles, FA-equivalent icons,
+  pin-first ordering, name+description search, Home FAB with long-press
+  Quick Switch sheet), **Desktop Mode** (ui/Desktop.kt — window manager
+  with draggable/resizable/snappable windows hosting the tool contents,
+  taskbar with Start menu + search, pins + open windows, all six snap
+  layouts, theme segment, live clock, sound/fullscreen/Settings/show-
+  desktop/close-all tray, desktop icons with saved positions and the
+  source's snap/drag options + both context menus, screen widget with
+  physical resolution + refresh rate, landscape auto-desktop), Settings
+  1:1 (full HSV custom-colour picker, UI scale applied app-wide, Reset
+  Everything with the source's exact key lists), exact PCM-synthesized
+  beeps, in-app toast pills, and bundled Inter/Fredoka fonts.
+  Named simplifications: window animations are instant; window resize
+  handles are the SE corner + right/bottom edges (of the source's 8);
+  exports keep the summary-card capture (Compose cannot screenshot
+  un-composed off-screen scroll content — see the coverage checklist).
+  The acceptance gate was re-run: 333 functions / 100 handlers extracted,
+  every group DONE or carrying a documented disposition in
+  `~/workspace/native-android/Function_Coverage_Checklist_2026-10-22.md`.
+  Build-env note: the sandbox egress CA was re-keyed AGAIN during this
+  pass; the fix is the same as before — replace the `hatch-egress-ca`
+  alias in the workspace JDK cacerts with the current
+  `/usr/local/share/ca-certificates/hatch-egress-ca.crt` and stop the
+  Gradle daemon. Phase 3 added: **Square Pic** (full sq* control set —
+  blur/solid/gradient+angle backgrounds, fit/fill, zoom, pan, border
+  toggle/color/width, swatches, 2048×2048 PNG export via MediaStore +
+  share); **PDF Tools** (queue, the source's six tools, PdfBox-Android
+  for merge/split/rotate/images→PDF and searchable-OCR text layers,
+  PdfRenderer previews, preview scale persisted as
+  `pdf_suite_preview_scale`; OCR = ML Kit local + Gemini Vision cloud
+  with user-key 1→2 failover, no built-in keys); **Sync** (the source's
+  exact 25-key SYNC_KEYS list, push/pull JSON shapes, dirty/pending
+  tracking, 2.5s debounce, interval setting + labels, Sync Now + status
+  line; WorkManager periodic at the platform's 15-minute floor plus an
+  in-app tick at the true interval while the app is open); and
+  **exports** (Share/JPG/PDF trio on every tool screen — Split/Tip/Tally
+  dedicated file bases and headers, generic exportToolTo*/shareAppToJPG
+  + __shareTextFor behaviour for the rest, stamped filenames
+  `name_YYYY-MM-DD_HH-mm-ss.ext`). Everything from Phase 1 (Home,
+  Settings, Currency, Time, Shopping Assistant, Unit Converter, PTO,
+  Split, Tip, Tally, Notes, SpongeBob) and Phase 2 (Flight Tracker,
+  `skytrack_mobile_state`) is unchanged and still building.
+  A final parity phase (per Shawn's 2026-10-22 decision that the APK must
+  match the HTML app) will add the home icon-grid styles, Desktop Mode
+  (window manager / taskbar / Start menu) and per-tool UI fidelity; for
+  that reason tool screens are window-agnostic content composables
+  hosted by thin full-screen wrappers, with all state in the shared store.
+  Build-env notes from Phase 3: the proxy relay can go stale (restart it
+  if Google Maven hangs), and the sandbox egress CA was re-keyed once —
+  if Gradle reports PKIX "signature check failed", re-import the current
+  CA (presented via the relay) into the workspace JDK truststore and
+  restart the Gradle daemon. Live Gemini OCR and live sync are NOT
+  verified — no user keys / sync token exist in the build env; Shawn's
+  on-device test is the first live check for both.
+  Live Aviationstack behaviour is NOT yet verified — the build env has no
+  key; Shawn's on-device test with his own key is the first live check.
+  Parser behaviour is verified by unit tests against a sample response
+  built from the fields the source JS reads.
+  Known simplifications vs the web version: beeps use ToneGenerator presets
+  (no arbitrary Web Audio frequencies); SpongeBob "Enter to copy" is an
+  explicit Copy button; the web Desktop/window-manager home is a native list
+  until the parity phase.
+
+## Source app and audit
+
+- Source HTML (uploaded by Shawn 2026-10-22, 461 KB, 7,772 lines, ~335 JS functions):
+  `~/workspace/user/files/Toolbox__Shawn_Rodis__0_c2n6.html`
+- Full audit: `~/workspace/native-android/Toolbox_Native_Audit_2026-10-22.md`
+- Tools identified (14 + Settings + Desktop/Home):
+  Currency Converter, Time Converter, Shopping Assistant, Unit Converter,
+  PTO Tracker, Split Gas & Parking, Tip & Bill Split, Tally Counter, Notes,
+  Flight Tracker / SkyTrack (Aviationstack), SpongeBob Meme Generator,
+  PDF Tools (Gemini OCR + Tesseract), Square Pic, and Settings
+  (accent themes / API keys / Sync). The web Desktop/window-manager home
+  becomes a native home grid + navigation on Android.
+
+## ⚠️ Security — API keys
+
+The HTML contains built-in/hardcoded Gemini and Aviationstack key variables.
+
+- **Do NOT copy any key values into this Android project.**
+- **Do NOT hardcode keys in the APK** — an APK can be unpacked and keys extracted.
+- The native Settings screen will store **user-entered keys on-device only**
+  (entered once by Shawn, like the HTML Settings override fields), and network
+  calls read the keys from that on-device store at runtime.
+
+## Project structure
+
+```
+toolbox-native/
+├── settings.gradle.kts          # google() + mavenCentral(), :app module
+├── build.gradle.kts             # plugin versions: AGP 8.5.2, Kotlin 2.0.20, Compose plugin 2.0.20
+├── gradle.properties
+├── gradle/wrapper/              # Gradle wrapper (8.7) — generated, see Build below
+├── AUDIT_TEMPLATE.md            # per-feature checklist for the port
+├── README.md                    # this file
+└── app/
+    ├── build.gradle.kts         # compileSdk/targetSdk 35, minSdk 26, Java 17,
+    │                            # Compose + Material3 + Navigation Compose + DataStore
+    └── src/main/
+        ├── AndroidManifest.xml  # no permissions in the scaffold
+        ├── java/com/shawnrodis/toolbox/
+        │   ├── MainActivity.kt  # Compose Navigation shell, Home placeholder:
+        │   │                    # "Tools will appear here after audit"
+        │   └── ui/theme/Theme.kt # Material 3 light/dark color schemes
+        └── res/values/          # strings.xml, themes.xml
+```
+
+Dependencies already declared in `app/build.gradle.kts`: Compose BOM 2024.09.00,
+Material3, `navigation-compose` 2.7.7, `datastore-preferences` 1.1.1,
+core-ktx, lifecycle-runtime-ktx, activity-compose.
+
+## Toolchain (workspace-local, verified 2026-10-22)
+
+Everything lives under `~/workspace/tools/` (persistent workspace — nothing was
+installed to `/usr` or `/opt`):
+
+| Component | Version verified | Location |
+|---|---|---|
+| OpenJDK (Temurin) | `17.0.20.1+1` — `java -version` OK | `~/workspace/tools/jdk17/` |
+| Gradle | `8.7` — `gradle -v` OK | `~/workspace/tools/gradle/gradle-8.7/` |
+| Android cmdline-tools | `Pkg.Revision=12.0` (11076708 zip) | `~/workspace/tools/android-sdk/cmdline-tools/latest/` |
+| Platform | API 35 (`AndroidVersion.ApiLevel=35`, Pkg.Revision 2) | `~/workspace/tools/android-sdk/platforms/android-35/` |
+| Build-tools | `35.0.0` | `~/workspace/tools/android-sdk/build-tools/35.0.0/` |
+| Platform-tools / adb | adb 1.0.41, version `37.0.1-15733141` | `~/workspace/tools/android-sdk/platform-tools/` |
+
+Set up your shell before building:
+
+```sh
+source ~/workspace/tools/env/android-env.sh
+# sets JAVA_HOME, ANDROID_HOME / ANDROID_SDK_ROOT, and PATH
+```
+
+**Known toolchain caveats in this VM (all diagnosed 2026-10-22, fixes applied):**
+
+1. `sdkmanager` could not install packages — its HTTPS fetch fails through the
+   egress proxy with `java.util.NoSuchElementException … HttpURLConnection.doTunneling0`.
+   Workaround used, which succeeded: download the official package zips from
+   `dl.google.com` with `curl` (platform-tools, `platform-35_r02.zip`,
+   `build-tools_r35_linux.zip`) and unpack them into the SDK layout above, plus
+   the standard public SDK license hashes under `android-sdk/licenses/`.
+2. The egress proxy is TLS-intercepting (issuer "Hatch Sandbox Egress CA"), so
+   Java initially rejected every HTTPS download (`PKIX path building failed`).
+   Fix applied: that CA was imported into the workspace JDK's truststore
+   (`~/workspace/tools/jdk17/lib/security/cacerts`, alias `hatch-egress-ca`).
+3. Java in this VM uses IPv4-mapped IPv6 sockets by default, which the sandbox
+   network intercepts/resets (Gradle daemon IPC and HTTP downloads failed).
+   Fix applied: `JAVA_TOOL_OPTIONS="-Djava.net.preferIPv4Stack=true"` — set by
+   `android-env.sh`, so every JVM (client, daemon, workers) gets it at launch.
+4. Gradle's HTTP client still could not download through the egress proxy
+   directly (`Connection reset`), so dependency downloads go through a tiny
+   local relay: `~/workspace/tools/proxy-relay/relay.js` (Node, listens on
+   `127.0.0.1:18080`, forwards CONNECT tunnels to the egress proxy over IPv4,
+   reads upstream credentials from the environment at runtime — none are stored
+   in any project file). Start it before building in this VM:
+   `nohup node ~/workspace/tools/proxy-relay/relay.js &`
+   Gradle is pointed at it from `~/workspace/tools/gradle-home/gradle.properties`
+   (the `GRADLE_USER_HOME` set by `android-env.sh`) — **not** from this project,
+   so the project stays portable to a normal network / Android Studio.
+
+## How to build
+
+```sh
+source ~/workspace/tools/env/android-env.sh
+cd ~/workspace/native-android/toolbox-native
+./gradlew assembleDebug
+# APK: app/build/outputs/apk/debug/app-debug.apk
+```
+
+- The Gradle wrapper (`gradlew`, `gradle/wrapper/`) was generated with the
+  workspace Gradle 8.7 (`gradle wrapper --gradle-version 8.7`).
+  If it is ever missing, regenerate it with that command — do not download a
+  random wrapper jar.
+- `local.properties` (git-ignored) must point at the SDK on this machine:
+  `sdk.dir=/home/hatch/workspace/tools/android-sdk`
+- On this VM, Gradle dependency downloads must go through the egress proxy
+  already present in the environment (`http_proxy` / `https_proxy`); pass the
+  proxy as JVM system properties at build time if a plain build cannot reach
+  `google()` / `mavenCentral()`. Do not commit proxy credentials to this repo.
+- Release / Play Store builds are out of scope for the scaffold: they will need
+  Shawn's own signing keystore, which must never be committed either.
+
+Build verification status is reported in the handoff that delivered this
+scaffold (whether `assembleDebug` was run, and its exact outcome) — the README
+intentionally does not claim a successful build on its own.
+
+VM note: `./gradlew` also works here — its Gradle 8.7 distribution was
+pre-seeded into `~/workspace/tools/gradle-home/wrapper/dists/` from the
+official zip in `~/workspace/tools/downloads/`, because downloading it from
+`services.gradle.org` fails certificate validation through this VM's proxy.
+On a normal network the wrapper downloads it itself, as usual.
+
+## What is still blocked / not done
+
+- ✅ HTML upload — **received** 2026-10-22 (`Toolbox__Shawn_Rodis__0_c2n6.html`).
+- ✅ Audit — **done**, see the audit file linked above.
+- ✅ **Porting — Phases 1–3 done** (see Status above). Only the final parity
+  phase (home styles + Desktop Mode) remains.
+- ⏳ No API keys are present in this project (by design, see Security above) —
+  Flight Tracker and Gemini OCR will not work until Shawn enters his keys in
+  the native Settings screen, and Sync stays "Not configured" until he saves
+  his sync token in Settings → Sync Across Devices.
+- ⏳ Desktop Mode / home view styles: in scope for the final parity phase
+  per Shawn's 2026-10-22 decision (the APK must match the HTML app, which
+  stays the desktop/laptop version of the same product).
+
+## Post-upload steps (the port phase)
+
+1. **Audit** — done; use `AUDIT_TEMPLATE.md` per feature for the detailed pass.
+2. **Feature mapping** — per tool: UI → Compose screen/route, JS logic → Kotlin,
+   `localStorage` → DataStore (simple state) or Room (lists: Notes, PTO logs,
+   tallies, shopping, tracked times, saved flights).
+3. **Port storage & APIs** — open.er-api.com (Currency) → Ktor/Retrofit with
+   cached rates; Aviationstack (Flight Tracker) → user-entered key; Gemini
+   (PDF OCR, Key1 → Key2 failover) → user-entered keys; Tesseract.js →
+   ML Kit on-device text recognition; pdf-lib/pdf.js → PdfRenderer + a Kotlin
+   PDF library; device Sync endpoint → ported exactly from the JS sync code, last.
+4. **Phased APKs** (per the audit):
+   - Phase 1: Home + Settings + Currency, Time, Unit Converter, Shopping
+     Assistant, PTO, Split, Tip, Tally, Notes, SpongeBob.
+   - Phase 2: Flight Tracker.
+   - Phase 3: Square Pic, PDF Tools incl. OCR, Sync, JPG/PDF exports.
+   Each phase: `./gradlew assembleDebug`, verify the APK, then deliver.

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Adaptive-icon background: sampled from the official icon artwork's
+         edges (approx #18181A) so the foreground blends seamlessly. -->
+    <color name="ic_launcher_background">#FF18181A</color>
+</resources>

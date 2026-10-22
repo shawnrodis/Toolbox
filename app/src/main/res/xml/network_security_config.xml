@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The sync server is user-configured (Settings -> Sync Across Devices):
+     there is no built-in endpoint. Self-hosted sync servers commonly run
+     plain HTTP on a home LAN, so cleartext is permitted to let the
+     user-entered sync address work; the app's API traffic (currency
+     rates, flight data, OCR) uses HTTPS endpoints. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
