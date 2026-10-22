@@ -38,7 +38,7 @@ The Android app requires Android 8.0 (API 26) or newer.
 
 ### Web (Windows, Mac, and Linux)
 
-1. Download `web/Toolbox.html` from this repository, or clone/download the whole repository.
+1. **Download [Toolbox.html](https://github.com/shawnrodis/toolbox/releases/download/v1.0.4/Toolbox.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
 2. Open `Toolbox.html` in any modern browser — double-clicking the file works.
 
 That's all: the web app is a single self-contained HTML file with no install and no build step. It can also be placed on any static hosting service.
