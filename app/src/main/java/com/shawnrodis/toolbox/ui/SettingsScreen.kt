@@ -757,7 +757,7 @@ fun SettingsScreen(store: AppStore, onBack: () -> Unit) {
         // v1.0.5: version footer parity with the web editions.
         // v1.2.1: "by Shawn Rodis" moved here from the home header.
         Text(
-            "Toolbox · Android Edition · Version 1.2.1 · by Shawn Rodis",
+            "Toolbox · Android Edition · Version 1.2.2 · by Shawn Rodis",
             fontSize = 11.sp,
             color = palette.subtle,
             textAlign = TextAlign.Center,

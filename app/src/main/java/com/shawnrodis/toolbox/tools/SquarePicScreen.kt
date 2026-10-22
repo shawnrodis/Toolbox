@@ -45,7 +45,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -73,6 +72,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.exifinterface.media.ExifInterface
 import com.shawnrodis.toolbox.data.AppStore
+import com.shawnrodis.toolbox.ui.SlimSlider
 import com.shawnrodis.toolbox.ui.saveFileToDownloads
 import com.shawnrodis.toolbox.ui.toast
 import com.shawnrodis.toolbox.ui.ToolCardHeader
@@ -101,8 +101,12 @@ import kotlin.math.roundToInt
  * Documented platform mappings:
  *  - <input type="color"> has no Compose equivalent; colours are edited via
  *    the source's own swatch presets plus a hex field (same values).
- *  - Canvas ctx.filter blur is approximated by a cover-fit downscale/
- *    upscale pass (strength mapped from the same slider value).
+ *  - Canvas ctx.filter blur is a REAL gaussian (v1.2.2): the cover-fit
+ *    square is blurred by [gaussianBlurPixels] (three-pass box-blur
+ *    gaussian) with σ = slider × target/720 — the source's own mapping
+ *    (`blur(sqBlur * k)`, k = S/720; the CSS blur length is the
+ *    gaussian σ). Through v1.2.1 this was a downscale/upscale
+ *    approximation that left blocky facets; see GaussianBlur.kt.
  *  - The web download becomes: save straight to the Downloads folder
  *    (MediaStore.Downloads; legacy public Downloads dir on API <= 28) with
  *    an "Exported <name>" toast — no share sheet (v1.0.6, at the owner's
@@ -162,23 +166,46 @@ private fun displayName(context: Context, uri: Uri): String {
 }
 
 /**
- * Blur approximation for the cover background: the cover-fit photo is
- * rendered small, then upscaled with filtering — the small size is driven
- * by the blur radius exactly as the source's px slider maps to strength.
+ * Blurred cover background: the photo is cover-fit into a [targetS]
+ * square, then blurred with a REAL gaussian ([gaussianBlurPixels],
+ * v1.2.2) at σ = [sigmaPx], in TARGET pixels. Callers scale σ by
+ * target/720 exactly like the source (`blur(sqBlur * k)`, k = S/720),
+ * so the same slider value looks the same at any render size: the
+ * export passes σ = slider × 2048/720 ≈ slider × 2.84 at 2048², the
+ * preview passes σ = slider × 360/720 = slider/2 at its reduced
+ * 360² (see SQ_PREVIEW_BLUR_SIZE). Through v1.2.1 this function
+ * instead downscaled the cover to a tiny bitmap and upscaled it,
+ * which produced the blocky "Minecraft" facets Shawn reported.
  */
-fun makeBlurredCover(src: Bitmap, radiusPx: Double, targetS: Int): Bitmap {
-    val small = (targetS / (1.0 + radiusPx * 0.9)).toInt().coerceIn(8, targetS)
-    val work = Bitmap.createBitmap(small, small, Bitmap.Config.ARGB_8888)
+fun makeBlurredCover(src: Bitmap, sigmaPx: Double, targetS: Int): Bitmap {
+    val work = Bitmap.createBitmap(targetS, targetS, Bitmap.Config.ARGB_8888)
     val c = Canvas(work)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    val r = sqBackgroundCoverRect(src.width, src.height, small)
+    val r = sqBackgroundCoverRect(src.width, src.height, targetS)
     c.drawBitmap(
         src, null,
         RectF(r.left.toFloat(), r.top.toFloat(), (r.left + r.width).toFloat(), (r.top + r.height).toFloat()),
         paint
     )
-    return Bitmap.createScaledBitmap(work, targetS, targetS, true)
+    if (sigmaPx > 0.0) {
+        val px = IntArray(targetS * targetS)
+        work.getPixels(px, 0, targetS, 0, 0, targetS, targetS)
+        gaussianBlurPixels(px, targetS, targetS, sigmaPx)
+        work.setPixels(px, 0, targetS, 0, 0, targetS, targetS)
+    }
+    return work
 }
+
+/**
+ * The on-screen preview blurs a reduced-size copy of the cover square
+ * (360² instead of the full 720 preview space), with σ scaled by the
+ * same 360/720 proportion — the gaussian algorithm is identical to
+ * the export's, and upscaling a genuinely blurred (band-limited)
+ * image is smooth, unlike the old downscale/upscale shortcut whose
+ * tiny intermediate WAS the image. 360² keeps a slider drag cheap:
+ * each σ costs six sliding-window passes over 130k pixels.
+ */
+private const val SQ_PREVIEW_BLUR_SIZE = 360
 
 /** Full sqDraw() at an arbitrary target size, on an Android Canvas. */
 fun renderSquareBitmap(
@@ -195,9 +222,11 @@ fun renderSquareBitmap(
     // 1) background fill (sqDraw step 1)
     when (mode) {
         "blur" -> {
-            val radius = blur * (s.toDouble() / SQ_PREVIEW)
-            if (radius > 0.0) {
-                canvas.drawBitmap(makeBlurredCover(src, radius, s), 0f, 0f, paint)
+            // σ at this render size, the source's k = S/720 scaling of
+            // the slider value (ctx.filter 'blur(sqBlur * k)').
+            val sigma = blur * (s.toDouble() / SQ_PREVIEW)
+            if (sigma > 0.0) {
+                canvas.drawBitmap(makeBlurredCover(src, sigma, s), 0f, 0f, paint)
             } else {
                 val r = sqBackgroundCoverRect(iw, ih, s)
                 canvas.drawBitmap(src, null, RectF(r.left.toFloat(), r.top.toFloat(), (r.left + r.width).toFloat(), (r.top + r.height).toFloat()), paint)
@@ -351,7 +380,16 @@ fun SquarePicContent(modifier: Modifier = Modifier) {
         } else {
             val (cox, coy) = clampedPan()
             val blurredBg = remember(img, blur) {
-                if (blur > 0f) makeBlurredCover(img, blur.toDouble(), SQ_PREVIEW) else null
+                if (blur > 0f) {
+                    // Reduced-size copy, σ scaled by the same proportion
+                    // (360/720) — see SQ_PREVIEW_BLUR_SIZE. The Canvas
+                    // below draws it into the full preview square.
+                    makeBlurredCover(
+                        img,
+                        blur.toDouble() * SQ_PREVIEW_BLUR_SIZE / SQ_PREVIEW,
+                        SQ_PREVIEW_BLUR_SIZE
+                    )
+                } else null
             }
             // v1.0.6 (defect: the preview was not the square): the Canvas used
             // to sit bare in the column. Its layout box WAS square
@@ -491,9 +529,13 @@ fun SquarePicContent(modifier: Modifier = Modifier) {
             when (mode) {
                 "blur" -> Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Blur", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
-                    Slider(
-                        value = blur, onValueChange = { blur = it },
-                        valueRange = 0f..40f, steps = 39,
+                    // v1.2.2: SlimSlider (the stock M3 slider drew dotted
+                    // step ticks + a bar thumb; the source is a plain
+                    // accent-colour range). Step 1 snapping in code.
+                    SlimSlider(
+                        value = blur,
+                        onValueChange = { blur = it.roundToInt().toFloat().coerceIn(0f, 40f) },
+                        valueRange = 0f..40f,
                         modifier = Modifier.weight(1f)
                     )
                     Text("${blur.roundToInt()}px", style = MaterialTheme.typography.bodySmall)
@@ -557,9 +599,12 @@ fun SquarePicContent(modifier: Modifier = Modifier) {
             // Zoom (sqSetZoom)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Zoom", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
-                Slider(
-                    value = zoom, onValueChange = { zoom = sqClampZoom(it.toDouble()).toFloat() },
-                    valueRange = 1f..3f, steps = 39,
+                // v1.2.2: SlimSlider; the source's 0.05 step is snapped
+                // in code (x20, round, /20), then sqClampZoom as before.
+                SlimSlider(
+                    value = zoom,
+                    onValueChange = { zoom = sqClampZoom(((it * 20f).roundToInt() / 20f).toDouble()).toFloat() },
+                    valueRange = 1f..3f,
                     modifier = Modifier.weight(1f)
                 )
                 Text(String.format(Locale.US, "%.2fx", zoom), style = MaterialTheme.typography.bodySmall)
@@ -569,9 +614,11 @@ fun SquarePicContent(modifier: Modifier = Modifier) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = borderOn, onCheckedChange = { borderOn = it })
                 Text("Border", style = MaterialTheme.typography.bodyMedium)
-                Slider(
-                    value = borderW, onValueChange = { borderW = it },
-                    valueRange = 0f..40f, steps = 39,
+                // v1.2.2: SlimSlider, step-1 snapping in code.
+                SlimSlider(
+                    value = borderW,
+                    onValueChange = { borderW = it.roundToInt().toFloat().coerceIn(0f, 40f) },
+                    valueRange = 0f..40f,
                     modifier = Modifier.weight(1f)
                 )
                 Text("${borderW.roundToInt()}px", style = MaterialTheme.typography.bodySmall)

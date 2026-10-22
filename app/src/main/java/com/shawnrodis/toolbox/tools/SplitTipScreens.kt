@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,12 +20,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.shawnrodis.toolbox.data.AppStore
+import com.shawnrodis.toolbox.ui.SlimSlider
 import com.shawnrodis.toolbox.ui.ToolCardHeader
 import com.shawnrodis.toolbox.ui.NumField
 import com.shawnrodis.toolbox.ui.ToolScreen
 import com.shawnrodis.toolbox.ui.copyToClipboard
 import com.shawnrodis.toolbox.ui.money
 import com.shawnrodis.toolbox.ui.numOr0
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -179,11 +180,17 @@ fun TipScreen(store: AppStore, onBack: () -> Unit) {
                 color = MaterialTheme.colorScheme.primary
             )
         }
-        Slider(
+        // v1.2.2: SlimSlider replaces the stock M3 slider (dotted step
+        // ticks, bar thumb). The source input is the same `h-2`
+        // appearance-none range as the Settings UI-scale slider, so it
+        // gets the same 8 dp track / 20 dp thumb; its step of 1 is
+        // snapped in code.
+        SlimSlider(
             value = tipPct,
-            onValueChange = { tipPct = it; save() },
+            onValueChange = { tipPct = it.roundToInt().toFloat().coerceIn(0f, 25f); save() },
             valueRange = 0f..25f,
-            steps = 24,
+            trackHeight = 8.dp,
+            thumbDiameter = 20.dp,
             modifier = Modifier.fillMaxWidth()
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {

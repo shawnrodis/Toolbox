@@ -59,6 +59,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -501,9 +502,17 @@ fun SlimSlider(
     trackHeight: Dp = 4.dp,
     thumbDiameter: Dp = 12.dp,
     accent: Color = MaterialTheme.colorScheme.primary,
-    trackColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+    trackColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+    // v1.2.2: optional gesture-end hook (the Material slider's
+    // onValueChangeFinished), needed by the PDF preview-scale slider,
+    // which persists + re-renders only when the drag ends — the
+    // source's onchange vs oninput split. Read through
+    // rememberUpdatedState so the pointerInput-captured call always
+    // invokes the latest lambda.
+    onValueChangeFinished: (() -> Unit)? = null
 ) {
     var widthPx by remember { mutableFloatStateOf(0f) }
+    val finishedRef = rememberUpdatedState(onValueChangeFinished)
     val span = valueRange.endInclusive - valueRange.start
     val fraction = if (span > 0f) {
         ((value - valueRange.start) / span).coerceIn(0f, 1f)
@@ -533,6 +542,7 @@ fun SlimSlider(
                             change.consume()
                         }
                     } while (event.changes.any { it.pressed })
+                    finishedRef.value?.invoke()
                 }
             },
         contentAlignment = Alignment.Center

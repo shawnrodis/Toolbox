@@ -38,7 +38,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import com.shawnrodis.toolbox.data.AppSettings
 import com.shawnrodis.toolbox.data.AppStore
 import com.shawnrodis.toolbox.ui.PickerField
+import com.shawnrodis.toolbox.ui.SlimSlider
 import com.shawnrodis.toolbox.ui.cacheSharedFile
 import com.shawnrodis.toolbox.ui.scrollContentBottomPadding
 import com.shawnrodis.toolbox.ui.saveFileToDownloads
@@ -71,6 +71,7 @@ import com.shawnrodis.toolbox.ui.saveImageToPictures
 import com.shawnrodis.toolbox.ui.shareUri
 import com.shawnrodis.toolbox.ui.toast
 import com.shawnrodis.toolbox.ui.ToolCardHeader
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -368,9 +369,15 @@ fun PdfToolsContent(store: AppStore, modifier: Modifier = Modifier) {
                     "Preview scale: ${String.format(Locale.US, "%.1fx", previewScale)}",
                     style = MaterialTheme.typography.labelSmall
                 )
-                Slider(
+                // v1.2.2: SlimSlider replaces the stock M3 slider (dotted
+                // step ticks, bar thumb); the source is a plain
+                // accent-colour range. Its 0.1 step is snapped in code,
+                // and SlimSlider's onValueChangeFinished keeps the
+                // source's oninput/onchange split (live update while
+                // dragging, persist only when the drag ends).
+                SlimSlider(
                     value = previewScale,
-                    onValueChange = { previewScale = it },
+                    onValueChange = { previewScale = (it * 10f).roundToInt() / 10f },
                     onValueChangeFinished = {
                         // pdfSaveScaleValue(): persist + re-render preview.
                         scope.launch {
@@ -380,8 +387,7 @@ fun PdfToolsContent(store: AppStore, modifier: Modifier = Modifier) {
                             )
                         }
                     },
-                    valueRange = 0.5f..3.0f,
-                    steps = 24
+                    valueRange = 0.5f..3.0f
                 )
             }
         }

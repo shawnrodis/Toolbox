@@ -5,6 +5,62 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-22):** **v1.2.2** — versionCode 17, versionName `1.2.2`.
+  Fix build (GitHub editions only; the web edition's only changes
+  are the version stamps — it is the reference for both fixes):
+  - **Square Pic blur is now a REAL gaussian (Android):** Shawn,
+    comparing screenshots of the two editions: "Notice the smooth
+    blur in the HTML version and the minecraft looking blur in the
+    Android version." The Android background fill had used the
+    documented v1.0.0 shortcut — cover-fit downscale to a tiny
+    bitmap (as small as ~43² at high slider values) + filtered
+    upscale — whose coarse facets were the "Minecraft" look. The
+    web source blurs with `ctx.filter = 'blur(sqBlur * k)'`,
+    k = S/720, and the CSS blur length is the gaussian σ. New
+    `tools/GaussianBlur.kt` (pure Kotlin, JVM-testable like
+    SquareGeometry): a three-pass box-blur gaussian (box widths
+    derived from σ by the standard formula — the construction the
+    SVG feGaussianBlur spec suggests; visually indistinguishable
+    from a true gaussian), separable sliding-window passes, O(1)
+    per pixel at any radius, edges replicating. `makeBlurredCover`
+    now cover-composes at the target size and blurs the actual
+    bitmap, so preview and export run the SAME algorithm:
+    export σ = slider × 2048/720 ≈ slider × 2.84 at 2048² (slider
+    18 → σ ≈ 51.2, exactly the web's `blur(51.2px)` at that size);
+    the preview blurs a reduced 360² copy with σ = slider × 360/720
+    = slider/2 (proportional, so preview ≈ export; upscaling a
+    genuinely blurred, band-limited image is smooth — the old
+    shortcut's sin was that the tiny bitmap WAS the image, not
+    that it was upscaled). The stale "blur is a downscale/upscale
+    approximation" deviation note is REMOVED (SquarePicScreen
+    header + coverage checklist) — it no longer applies. Tests:
+    `V122SquareBlurTest` — a synthetic hard edge must melt
+    gradually (monotonic, ≥ 12 distinct intermediate levels, no
+    flat run > 4 in the transition band, no jump > 40) and a 1-px
+    checkerboard must average to near-uniform mid-grey; both fail
+    under the old sampling shortcut. Export still renders on
+    Dispatchers.IO as before.
+  - **Remaining stock sliders converted to SlimSlider (Android):**
+    the v1.2.1 slider touch-up continued — the stock Material3
+    sliders still visible in Shawn's Square Pic screenshot
+    (dotted step ticks, bar thumb) are gone. Converted: Square
+    Pic blur 0–40 (step 1), zoom 1–3 (step 0.05), border 0–40
+    (step 1) — SlimSlider defaults (4 dp track, 12 dp thumb),
+    matching the source's plain `accent-color` range inputs; PDF
+    Tools preview scale 0.5–3.0 (step 0.1 snapped in code); Tip
+    slider 0–25 (step 1) at 8 dp track / 20 dp thumb, matching
+    the source's `h-2` class treatment used for the Settings
+    slider. All stepping now happens in the onValueChange code;
+    ranges, value labels and formatting unchanged. SlimSlider
+    gained ONE minimal extension: an optional
+    `onValueChangeFinished` (read via rememberUpdatedState),
+    needed by the PDF slider to keep the source's oninput/
+    onchange split (live update while dragging; persist
+    `pdf_suite_preview_scale` only when the drag ends). No stock
+    `Slider(` remains anywhere in the app.
+  - **Version alignment:** versionCode 17 / versionName 1.2.2;
+    Settings footers and the web edition's stamps at 1.2.2
+    ("Toolbox · <Edition> · Version 1.2.2 · by Shawn Rodis").
 - **Status (2026-10-22):** **v1.2.1** — versionCode 16, versionName `1.2.1`.
   Fix/polish build (GitHub editions only):
   - **Long-press haptics (both editions):** the v1.1.0 haptics
