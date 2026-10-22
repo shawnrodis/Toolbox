@@ -73,6 +73,7 @@ import com.shawnrodis.toolbox.ui.GlobalHeader
 import com.shawnrodis.toolbox.ui.parsePins
 import com.shawnrodis.toolbox.ui.toolByRoute
 import com.shawnrodis.toolbox.ui.toast
+import com.shawnrodis.toolbox.ui.ToolboxHaptics
 import com.shawnrodis.toolbox.ui.toolboxBeep
 import kotlinx.coroutines.launch
 import com.shawnrodis.toolbox.ui.FullscreenState
@@ -109,6 +110,10 @@ class MainActivity : ComponentActivity() {
             val sync = remember { SyncManager.get(applicationContext, store) }
             LaunchedEffect(Unit) { sync.start() }
             val settings by store.settings.collectAsState(initial = AppSettings())
+            // v1.1.0: haptics hook — init the vibrator once and keep the
+            // central beep-hook gate current with the Settings toggle.
+            LaunchedEffect(Unit) { ToolboxHaptics.init(applicationContext) }
+            LaunchedEffect(settings.haptics) { ToolboxHaptics.enabled = settings.haptics }
 
             // Fullscreen (source toggleFullscreen): runtime immersive mode.
             val fullscreen = FullscreenState.active.value

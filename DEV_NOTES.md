@@ -5,6 +5,58 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-22):** **v1.1.0** — versionCode 13, versionName `1.1.0`.
+  Feature release, four workstreams, all editions (Android + public
+  web + Shawn's personal web copy):
+  - **Firebase sync provider (A).** Settings → Sync Across Devices
+    gains a provider choice: Off / Own server (unchanged) / Firebase.
+    Firebase transport is Realtime Database REST only (no SDK, no
+    google-services): state at `{databaseURL}/users/{uid}/state.json`
+    in the same state-map shape, merged by the SAME engine as the
+    server protocol (`SyncLogic.computePull` natively; an extracted
+    `syncApplyState` in the web editions) — all 26 SYNC_KEYS. Writes
+    use PATCH; deletions become JSON nulls (RTDB deletes the key),
+    with the client ISO stamp for `updated_at` (RTDB has no server
+    timestamps without extra calls). Auth is Identity Toolkit REST
+    (signUp / signInWithPassword / securetoken refresh); config,
+    email, refresh token and uid live under device-local
+    `toolbox_sync_fb_*` keys — never synced, untouched by Reset
+    Everything; sign-out clears them. Config is pasted as one blob
+    (JSON or the console's `firebaseConfig = {...}` snippet) and
+    parsed leniently (`parseFirebaseConfig`). 401/403 → one silent
+    refresh + one retry → "Firebase session expired — sign in again
+    in Settings." Setup doc: `FIREBASE_SYNC.md`. **Not live-verified**
+    — no real Firebase project exists yet; config fields ship empty.
+  - **Desktop Mode taskbar audit (B).** Against the source `wm*`
+    behaviour: the house pin now closes the snap panel before
+    show-desktop, shows `active` when no window is focused,
+    transient (open, unpinned) pins list in tools order, and the
+    source's document-click rule is mirrored — tapping any pin, tray
+    button, desktop icon, blank desktop, or window closes the Start
+    menu. Start-menu search already reset on open (conditional
+    composition); Start↔Snap mutual closing and focus fall-through
+    already matched.
+  - **Haptics (C).** Device-local `toolbox_haptics` (absent = on,
+    never synced, not reset). Attached at the central beep hook in
+    both editions: web `navigator.vibrate(10)` guarded (no-op on
+    desktop browsers / iOS Safari); Android a 10 ms one-shot through
+    the shared `toolboxBeep()` funnel (`VIBRATE` permission added).
+    Toggle sits with Sound in a Sounds & Haptics settings card.
+  - **Settings visual parity (D).** The native Settings screen no
+    longer uses stock Material controls — it replicates the HTML
+    Settings card design (page card, section cards, icon boxes,
+    source label/description type sizes, source palette per theme
+    mode, pill buttons, segmented rows, source-styled fields and
+    slider, HSV custom-accent picker kept). Section order matches
+    the source; the pre-existing Fullscreen row and the new Sound /
+    Haptics rows are styled as native citizens of the same design.
+    The Reset confirm dialog stays a native Material dialog
+    (functional parity).
+  - Tests: 54/54 unit tests green (13 new in `V110FirebaseTest`:
+    config parsing, provider defaults, fb keys never synced, state
+    URL + push-body mapping, pulled RTDB state through the existing
+    merge, auth response/error mapping, haptics default-on).
+    `assembleDebug` clean; badging versionCode 13 / 1.1.0.
 - **Status (2026-10-22):** **v1.0.7** — versionCode 12, versionName `1.0.7`.
   One on-device fix (Shawn): **SpongeBob Meme Generator now regenerates
   live while typing.** The source textarea carries

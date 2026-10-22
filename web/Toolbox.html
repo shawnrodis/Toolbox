@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Toolbox (Shawn Rodis) — Web Edition v1.0.7 -->
+<!-- Toolbox (Shawn Rodis) — Web Edition v1.1.0 -->
 <html lang="en" id="html-root" class="h-full w-full dark black selection:bg-indigo-500 selection:text-white overflow-x-hidden" data-accent="indigo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Toolbox (Shawn Rodis)</title>
-    <meta name="version" content="1.0.7">
+    <meta name="version" content="1.1.0">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -1542,6 +1542,32 @@
                     <div class="p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl space-y-2">
                         <div class="flex items-center space-x-3">
                             <div class="p-2 bg-slate-200 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 rounded-lg">
+                                <i class="fa-solid fa-volume-high"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-xs text-slate-900 dark:text-white">Sounds &amp; Haptics</h3>
+                                <p class="text-[10px] text-slate-400">Tap feedback for tally / shopping actions</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-900 dark:text-white">Sound</p>
+                                <p class="text-[10px] text-slate-400">Beeps for tally / shopping actions</p>
+                            </div>
+                            <button id="settings-sound-toggle" onclick="toggleToolboxSound(); renderFeedbackToggles();" class="px-3 py-1.5 bg-slate-200 dark:bg-zinc-900 hover:bg-slate-300 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-xl font-bold text-xs transition active:scale-95">On</button>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-900 dark:text-white">Haptics</p>
+                                <p class="text-[10px] text-slate-400">A light vibration alongside the tap beeps (Android browsers)</p>
+                            </div>
+                            <button id="settings-haptics-toggle" onclick="toggleToolboxHaptics()" class="px-3 py-1.5 bg-slate-200 dark:bg-zinc-900 hover:bg-slate-300 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-xl font-bold text-xs transition active:scale-95">On</button>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl space-y-2">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2 bg-slate-200 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 rounded-lg">
                                 <i class="fa-solid fa-key"></i>
                             </div>
                             <div>
@@ -1587,9 +1613,18 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-xs text-slate-900 dark:text-white">Sync Across Devices</h3>
-                                <p class="text-[10px] text-slate-400">Mirror this device's data to your own sync server · enter its address and token below · clear the token to turn sync off</p>
+                                <p class="text-[10px] text-slate-400">Mirror this device's data to your own sync server or a free Firebase project · choose a provider below</p>
                             </div>
                         </div>
+                        <div class="flex items-center justify-between gap-2">
+                            <label for="sync-provider" class="text-xs font-semibold text-slate-900 dark:text-white">Provider</label>
+                            <select id="sync-provider" onchange="syncSaveProvider()" class="px-2 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-black text-slate-900 dark:text-white">
+                                <option value="off">Off</option>
+                                <option value="server">Own server</option>
+                                <option value="firebase">Firebase</option>
+                            </select>
+                        </div>
+                        <div id="sync-server-fields" class="space-y-2">
                         <input id="sync-url" type="url" placeholder="Sync Server URL (e.g. http://192.168.1.10:9000)" onchange="syncSaveSettings()" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-black text-slate-900 dark:text-white placeholder:text-slate-400">
                         <div class="relative">
                             <input id="sync-token" type="password" placeholder="Secret token (matches toolbox-sync-server.py)" onchange="syncSaveSettings()" class="w-full pr-10 px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-black text-slate-900 dark:text-white placeholder:text-slate-400">
@@ -1597,6 +1632,30 @@
                                 <i id="sync-token-eye" class="fa-solid fa-eye text-xs"></i>
                             </button>
                         </div>
+                        </div>
+                        <div id="sync-firebase-fields" class="hidden space-y-2">
+                            <div class="space-y-1">
+                                <label for="sync-fb-config" class="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">Firebase config</label>
+                                <textarea id="sync-fb-config" rows="3" spellcheck="false" placeholder="Paste your Firebase config — the JSON object, or the whole firebaseConfig = { … } snippet" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-black text-slate-900 dark:text-white placeholder:text-slate-400 font-mono"></textarea>
+                                <p id="sync-fb-config-status" class="text-[10px] text-slate-400">From your Firebase project settings — setup steps are in FIREBASE_SYNC.md in the repo.</p>
+                            </div>
+                            <button onclick="syncFbSaveConfig()" class="px-3 py-1.5 accent-bg text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition">Save config</button>
+                            <div id="sync-fb-signedout" class="space-y-2">
+                                <div class="space-y-1">
+                                    <label for="sync-fb-email" class="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">Sync account</label>
+                                    <input id="sync-fb-email" type="email" placeholder="Email" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-black text-slate-900 dark:text-white placeholder:text-slate-400">
+                                </div>
+                                <input id="sync-fb-password" type="password" placeholder="Password" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-black text-slate-900 dark:text-white placeholder:text-slate-400">
+                                <div class="flex items-center gap-2">
+                                    <button onclick="syncFbSignUp()" class="px-3 py-1.5 accent-bg text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition">Sign up</button>
+                                    <button onclick="syncFbSignIn()" class="px-3 py-1.5 bg-slate-200 dark:bg-zinc-900 hover:bg-slate-300 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-xl font-bold text-xs transition active:scale-95">Sign in</button>
+                                </div>
+                                <p class="text-[10px] text-slate-400">One free account per person — it keeps your data separate from everyone else's.</p>
+                            </div>
+                            <div id="sync-fb-signedin" class="hidden items-center gap-2">
+                                <span id="sync-fb-user" class="text-[11px] text-slate-700 dark:text-zinc-300 flex-1"></span>
+                                <button onclick="syncFbSignOut()" class="px-3 py-1.5 bg-slate-200 dark:bg-zinc-900 hover:bg-slate-300 dark:hover:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-xl font-bold text-xs transition active:scale-95">Sign out</button>
+                            </div>
                         <div class="flex items-center gap-2">
                             <button onclick="syncNow()" class="px-3 py-1.5 accent-bg text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition">Sync Now</button>
                             <span id="sync-status" class="text-[10px] text-slate-400">Not configured</span>
@@ -1633,7 +1692,7 @@
             </div>
         </section>
 
-                <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.0.7</div>
+                <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.1.0</div>
 <section id="tab-skytrack" class="tab-content space-y-4 hidden relative">
 
             <div class="sky-header border-b px-3 py-3 rounded-2xl flex items-center justify-between">
@@ -2583,6 +2642,7 @@
             renderTallyItems();
             renderShopItems();
             updateSoundBtns();
+            renderFeedbackToggles();
 
             // Desktop icon context menu wiring (pin to taskbar)
             const __pinBtn = document.getElementById('icon-ctx-pin');
@@ -3360,6 +3420,9 @@
         const _lsRemoveItem = localStorage.removeItem.bind(localStorage);
 
         function syncConfigured() {
+            const p = syncProvider();
+            if (p === 'off') return false;
+            if (p === 'firebase') return fbConfigured();
             return !!(syncGetUrl() && localStorage.getItem(SYNC_TOKEN_KEY));
         }
         function syncEndpoint() {
@@ -3411,6 +3474,7 @@
         // Push unsynced local changes to the server.
         async function syncPushNow() {
             if (!syncConfigured()) return { ok: false, reason: 'not-configured' };
+            if (syncProvider() === 'firebase') return fbPushNow();
             const pending = syncReadPending();
             const keys = Object.keys(pending).filter(k => SYNC_KEYS.includes(k));
             if (!keys.length) return { ok: true, applied: 0 };
@@ -3440,32 +3504,42 @@
             }
         }
 
+        // The merge engine, shared by both sync transports (v1.1.0):
+        // locally-pending keys win; otherwise a backend entry applies
+        // when we have no meta for the key or its updated_at is newer;
+        // a key the backend no longer has is deleted locally.
+        function syncApplyState(serverState, pending) {
+            let applied = 0;
+            for (const key of SYNC_KEYS) {
+                if (pending[key]) continue;
+                const entry = serverState[key];
+                if (entry && typeof entry.value === 'string') {
+                    if (!syncMeta[key] || entry.updated_at > syncMeta[key]) {
+                        _lsSetItem(key, entry.value);
+                        syncMeta[key] = entry.updated_at;
+                        applied++;
+                    }
+                } else if (syncMeta[key]) {
+                    _lsRemoveItem(key); // deleted on the backend -> remove locally
+                    delete syncMeta[key];
+                    applied++;
+                }
+            }
+            _lsSetItem(SYNC_META_KEY, JSON.stringify(syncMeta));
+            return applied;
+        }
+
         // Pull newer server state. Locally-pending (unsynced) keys always win.
         async function syncPullNow() {
             if (!syncConfigured()) return { ok: false, reason: 'not-configured' };
+            if (syncProvider() === 'firebase') return fbPullNow();
             const pending = syncReadPending();
             try {
                 const res = await fetch(syncEndpoint(), { headers: syncAuthHeaders() });
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
                 const serverState = (data && data.state) || {};
-                let applied = 0;
-                for (const key of SYNC_KEYS) {
-                    if (pending[key]) continue;
-                    const entry = serverState[key];
-                    if (entry && typeof entry.value === 'string') {
-                        if (!syncMeta[key] || entry.updated_at > syncMeta[key]) {
-                            _lsSetItem(key, entry.value);
-                            syncMeta[key] = entry.updated_at;
-                            applied++;
-                        }
-                    } else if (syncMeta[key]) {
-                        _lsRemoveItem(key); // deleted on the server -> remove locally
-                        delete syncMeta[key];
-                        applied++;
-                    }
-                }
-                _lsSetItem(SYNC_META_KEY, JSON.stringify(syncMeta));
+                const applied = syncApplyState(serverState, pending);
                 return { ok: true, applied };
             } catch (err) {
                 syncSetStatus('Sync failed: ' + err.message);
@@ -3476,7 +3550,7 @@
         // Manual sync (may toast — user asked for it).
         async function syncNow() {
             if (!syncConfigured()) {
-                showToast('Enter your sync server URL and token first.', 'fa-solid fa-triangle-exclamation');
+                showToast(syncNotConfiguredMessage(), 'fa-solid fa-triangle-exclamation');
                 return;
             }
             syncSetStatus('Syncing…');
@@ -3555,6 +3629,300 @@
             if (syncConfigured()) syncStartup();
         }
 
+        /* ============ Firebase sync provider (v1.1.0) : BEGIN ============ */
+        // A second transport for the same sync protocol (same SYNC_KEYS,
+        // same state-map shape, same merge via syncApplyState) against
+        // the user's own Firebase Realtime Database, REST only — no SDK.
+        // State: {databaseURL}/users/{uid}/state.json. Auth: Firebase
+        // Authentication email/password via the Identity Toolkit REST
+        // endpoints. Config + refresh token + email are device-local
+        // (never synced, not cleared by Reset Everything); signing out
+        // clears the session. See FIREBASE_SYNC.md for project setup.
+        const SYNC_PROVIDER_KEY = 'toolbox_sync_provider';
+        const FB_CONFIG_KEY = 'toolbox_sync_fb_config';
+        const FB_EMAIL_KEY = 'toolbox_sync_fb_email';
+        const FB_REFRESH_KEY = 'toolbox_sync_fb_refresh';
+        const FB_UID_KEY = 'toolbox_sync_fb_uid';
+        let fbIdTokenCache = null, fbIdTokenExpiry = 0, fbUidCache = null;
+
+        function syncProvider() {
+            const p = localStorage.getItem(SYNC_PROVIDER_KEY);
+            return (p === 'firebase' || p === 'off') ? p : 'server';
+        }
+        function syncSaveProvider() {
+            const sel = document.getElementById('sync-provider');
+            _lsSetItem(SYNC_PROVIDER_KEY, sel ? sel.value : 'server');
+            // Fresh bookkeeping per backend, like changing the server.
+            _lsSetItem(SYNC_META_KEY, '{}');
+            _lsSetItem(SYNC_PENDING_KEY, '{}');
+            syncMeta = {};
+            fbRender();
+            syncApplySchedule();
+            if (syncConfigured()) { syncSetStatus('Syncing…'); syncStartup(); }
+            else syncSetStatus(syncProvider() === 'off' ? 'Sync is off' : 'Not configured');
+        }
+        function syncNotConfiguredMessage() {
+            const p = syncProvider();
+            if (p === 'off') return 'Sync is off — choose a provider in Settings.';
+            if (p === 'firebase') return 'Sign in to Firebase first (Settings → Sync Across Devices).';
+            return 'Enter your sync server URL and token first.';
+        }
+
+        // Lenient config parse: raw JSON or the console's JS snippet.
+        function fbParseConfig(raw) {
+            if (!raw || !raw.trim()) return { missing: ['apiKey', 'databaseURL'] };
+            const field = (name) => {
+                const m = raw.match(new RegExp('["\']?' + name + '["\']?\\s*:\\s*["\']([^"\']*)["\']'));
+                return m ? m[1].trim() : null;
+            };
+            const apiKey = field('apiKey');
+            let databaseURL = field('databaseURL');
+            if (databaseURL) databaseURL = databaseURL.replace(/\/+$/, '');
+            const missing = [];
+            if (!apiKey) missing.push('apiKey');
+            if (!databaseURL) missing.push('databaseURL');
+            if (missing.length) return { missing };
+            return { config: { apiKey, databaseURL, projectId: field('projectId'), authDomain: field('authDomain') } };
+        }
+        function fbConfig() {
+            const r = fbParseConfig(localStorage.getItem(FB_CONFIG_KEY) || '');
+            return r.config || null;
+        }
+        function fbConfigured() {
+            return !!(fbConfig() && localStorage.getItem(FB_REFRESH_KEY));
+        }
+        function fbUid() {
+            return fbUidCache || localStorage.getItem(FB_UID_KEY) || null;
+        }
+
+        // Silent refresh-token exchange; the idToken lives ~1 hour.
+        async function fbGetIdToken(force) {
+            const now = Date.now();
+            if (!force && fbIdTokenCache && now < fbIdTokenExpiry - 30000) return fbIdTokenCache;
+            const cfg = fbConfig();
+            const refresh = localStorage.getItem(FB_REFRESH_KEY);
+            if (!cfg || !refresh) return null;
+            try {
+                const res = await fetch('https://securetoken.googleapis.com/v1/token?key=' + cfg.apiKey, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(refresh)
+                });
+                if (!res.ok) return null;
+                const data = await res.json();
+                if (!data.id_token) return null;
+                fbIdTokenCache = data.id_token;
+                fbIdTokenExpiry = now + (parseInt(data.expires_in || '3600', 10) * 1000);
+                fbUidCache = data.user_id || fbUidCache;
+                if (data.refresh_token) _lsSetItem(FB_REFRESH_KEY, data.refresh_token);
+                if (data.user_id) _lsSetItem(FB_UID_KEY, data.user_id);
+                return fbIdTokenCache;
+            } catch (e) { return null; }
+        }
+
+        // One RTDB REST call set with the 401 policy: refresh once,
+        // retry once, then report an expired session.
+        async function fbDataRequest(method, body) {
+            const cfg = fbConfig();
+            const uid = fbUid();
+            if (!cfg || !uid) throw new Error('auth');
+            const url = cfg.databaseURL + '/users/' + uid + '/state.json';
+            const attempt = async (token) => {
+                const res = await fetch(url + '?auth=' + token, {
+                    method,
+                    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+                    body: body || undefined
+                });
+                if (res.status === 401 || res.status === 403) throw new Error('auth-http-' + res.status);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res;
+            };
+            let token = await fbGetIdToken(false);
+            if (!token) throw new Error('auth');
+            try {
+                return await attempt(token);
+            } catch (e) {
+                if (!/^auth-http-/.test(e.message)) throw e;
+                token = await fbGetIdToken(true);
+                if (!token) throw new Error('auth');
+                try {
+                    return await attempt(token);
+                } catch (e2) {
+                    if (/^auth-http-/.test(e2.message)) throw new Error('auth');
+                    throw e2;
+                }
+            }
+        }
+
+        async function fbPushNow() {
+            if (!fbConfigured()) return { ok: false, reason: 'not-configured' };
+            const pending = syncReadPending();
+            const keys = Object.keys(pending).filter(k => SYNC_KEYS.includes(k));
+            if (!keys.length) return { ok: true, applied: 0 };
+            const stamp = new Date().toISOString();
+            const body = {};
+            const deleted = [];
+            for (const k of keys) {
+                const v = localStorage.getItem(k);
+                if (v === null) { body[k] = null; deleted.push(k); }
+                else body[k] = { value: v, updated_at: stamp };
+            }
+            try {
+                await fbDataRequest('PATCH', JSON.stringify(body));
+                const p2 = syncReadPending();
+                keys.forEach(k => delete p2[k]);
+                _lsSetItem(SYNC_PENDING_KEY, JSON.stringify(p2));
+                keys.forEach(k => { if (deleted.includes(k)) delete syncMeta[k]; else syncMeta[k] = stamp; });
+                _lsSetItem(SYNC_META_KEY, JSON.stringify(syncMeta));
+                syncSetStatus('Last synced ' + new Date().toLocaleTimeString());
+                return { ok: true, applied: keys.length };
+            } catch (err) {
+                if (err.message === 'auth') {
+                    syncSetStatus('Firebase session expired — sign in again in Settings.');
+                    return { ok: false, error: 'auth' };
+                }
+                syncSetStatus('Sync failed: ' + err.message);
+                return { ok: false, error: err.message };
+            }
+        }
+
+        async function fbPullNow() {
+            if (!fbConfigured()) return { ok: false, reason: 'not-configured' };
+            const pending = syncReadPending();
+            try {
+                const res = await fbDataRequest('GET', null);
+                const serverState = (await res.json()) || {};
+                const applied = syncApplyState(serverState, pending);
+                return { ok: true, applied };
+            } catch (err) {
+                if (err.message === 'auth') {
+                    syncSetStatus('Firebase session expired — sign in again in Settings.');
+                    return { ok: false, error: 'auth' };
+                }
+                syncSetStatus('Sync failed: ' + err.message);
+                return { ok: false, error: err.message };
+            }
+        }
+
+        function fbAuthErrorMessage(code) {
+            switch (code) {
+                case 'EMAIL_EXISTS': return 'That email already has a sync account — try Sign in instead.';
+                case 'EMAIL_NOT_FOUND':
+                case 'INVALID_PASSWORD':
+                case 'INVALID_LOGIN_CREDENTIALS': return 'Email or password didn\'t match — check them and try again.';
+                case 'INVALID_EMAIL': return 'That email address doesn\'t look valid.';
+                case 'WEAK_PASSWORD': return 'That password is too weak — Firebase asks for at least 6 characters.';
+                case 'TOO_MANY_ATTEMPTS_TRY_LATER': return 'Too many attempts — wait a little and try again.';
+                case 'USER_DISABLED': return 'This sync account has been disabled.';
+                case 'OPERATION_NOT_ALLOWED': return 'Email/password sign-in isn\'t enabled in that Firebase project yet (see FIREBASE_SYNC.md).';
+                default: return 'Firebase sign-in failed' + (code ? ' (' + code + ')' : '') + '.';
+            }
+        }
+
+        async function fbAuthCall(kind) {
+            const cfg = fbConfig();
+            if (!cfg) { showToast('Save your Firebase config first.', 'fa-solid fa-triangle-exclamation'); return; }
+            const email = ((document.getElementById('sync-fb-email') || {}).value || '').trim();
+            const password = ((document.getElementById('sync-fb-password') || {}).value || '');
+            if (!email || !password) { showToast('Enter your email and password first.', 'fa-solid fa-triangle-exclamation'); return; }
+            try {
+                const res = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:' + kind + '?key=' + cfg.apiKey, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, returnSecureToken: true })
+                });
+                const data = await res.json().catch(() => null);
+                if (!res.ok) {
+                    const code = data && data.error && data.error.message
+                        ? String(data.error.message).split(' : ')[0] : null;
+                    const msg = fbAuthErrorMessage(code);
+                    syncSetStatus(msg);
+                    showToast(msg, 'fa-solid fa-triangle-exclamation');
+                    return;
+                }
+                fbIdTokenCache = data.idToken;
+                fbIdTokenExpiry = Date.now() + (parseInt(data.expiresIn || '3600', 10) * 1000);
+                fbUidCache = data.localId;
+                _lsSetItem(FB_REFRESH_KEY, data.refreshToken);
+                _lsSetItem(FB_UID_KEY, data.localId);
+                _lsSetItem(FB_EMAIL_KEY, email);
+                const pw = document.getElementById('sync-fb-password');
+                if (pw) pw.value = '';
+                fbRender();
+                syncSetStatus('Signed in as ' + email);
+                showToast('Signed in as ' + email + '.');
+                syncApplySchedule();
+                syncStartup();
+            } catch (err) {
+                syncSetStatus('Firebase sign-in failed: ' + err.message);
+                showToast('Firebase sign-in failed: ' + err.message, 'fa-solid fa-triangle-exclamation');
+            }
+        }
+        function syncFbSignUp() { fbAuthCall('signUp'); }
+        function syncFbSignIn() { fbAuthCall('signInWithPassword'); }
+        function syncFbSignOut() {
+            _lsRemoveItem(FB_REFRESH_KEY);
+            _lsRemoveItem(FB_UID_KEY);
+            _lsRemoveItem(FB_EMAIL_KEY);
+            fbIdTokenCache = null; fbIdTokenExpiry = 0; fbUidCache = null;
+            fbRender();
+            syncSetStatus('Signed out of Firebase');
+            syncApplySchedule();
+            showToast('Signed out of Firebase.');
+        }
+        function syncFbSaveConfig() {
+            const raw = ((document.getElementById('sync-fb-config') || {}).value || '');
+            _lsSetItem(FB_CONFIG_KEY, raw.trim());
+            // A different project = a different backend: fresh bookkeeping.
+            _lsSetItem(SYNC_META_KEY, '{}');
+            _lsSetItem(SYNC_PENDING_KEY, '{}');
+            syncMeta = {};
+            fbRender();
+            const r = fbParseConfig(raw);
+            if (r.config) {
+                syncSetStatus('Firebase project saved (' + (r.config.projectId || 'your project') + ') — sign in below');
+                showToast('Firebase config saved — now create your sync account or sign in.');
+            } else {
+                const msg = 'That config is missing: ' + r.missing.join(', ');
+                syncSetStatus(msg);
+                showToast(msg + '.', 'fa-solid fa-triangle-exclamation');
+            }
+        }
+
+        // Show/hide the provider field groups + the signed-in state.
+        function fbRender() {
+            const p = syncProvider();
+            const sel = document.getElementById('sync-provider');
+            if (sel) sel.value = p;
+            const server = document.getElementById('sync-server-fields');
+            if (server) server.classList.toggle('hidden', p !== 'server');
+            const fb = document.getElementById('sync-firebase-fields');
+            if (fb) fb.classList.toggle('hidden', p !== 'firebase');
+            const signedIn = fbConfigured();
+            const out = document.getElementById('sync-fb-signedout');
+            if (out) out.classList.toggle('hidden', signedIn);
+            const inEl = document.getElementById('sync-fb-signedin');
+            if (inEl) {
+                inEl.classList.toggle('hidden', !signedIn);
+                inEl.classList.toggle('flex', signedIn);
+            }
+            const user = document.getElementById('sync-fb-user');
+            if (user) user.textContent = signedIn ? ('Signed in as ' + (localStorage.getItem(FB_EMAIL_KEY) || '')) : '';
+            const st = document.getElementById('sync-fb-config-status');
+            if (st) {
+                const raw = localStorage.getItem(FB_CONFIG_KEY) || '';
+                const r = fbParseConfig(raw);
+                if (r.config) {
+                    st.textContent = 'Project: ' + (r.config.projectId || '—') + ' · Database: ' + r.config.databaseURL.replace('https://', '');
+                } else if (raw.trim()) {
+                    st.textContent = 'That config is missing: ' + r.missing.join(', ');
+                } else {
+                    st.textContent = 'From your Firebase project settings — setup steps are in FIREBASE_SYNC.md in the repo.';
+                }
+            }
+        }
+        /* ============ Firebase sync provider : END ============ */
+
         // --- Sync scheduler: periodic pull+push at a user-chosen interval. ---
         // The interval is device-local (like the URL/token) and never synced.
         const SYNC_INTERVAL_KEY = 'toolbox_sync_interval'; // ms; 0 = off
@@ -3613,6 +3981,13 @@
             if (urlEl) urlEl.value = syncGetUrl();
             if (tokEl) tokEl.value = localStorage.getItem(SYNC_TOKEN_KEY) || '';
             if (intEl) intEl.value = String(syncGetInterval());
+            const provEl = document.getElementById('sync-provider');
+            if (provEl) provEl.value = syncProvider();
+            const fbCfgEl = document.getElementById('sync-fb-config');
+            if (fbCfgEl) fbCfgEl.value = localStorage.getItem(FB_CONFIG_KEY) || '';
+            const fbEmailEl = document.getElementById('sync-fb-email');
+            if (fbEmailEl) fbEmailEl.value = localStorage.getItem(FB_EMAIL_KEY) || '';
+            fbRender();
             const avKeyEl = document.getElementById('api-aviationstack-key');
             if (avKeyEl) avKeyEl.value = localStorage.getItem(AVIATIONSTACK_KEY_LS) || '';
             const gk1El = document.getElementById('api-gemini-key-1');
@@ -4345,7 +4720,33 @@
                 return v !== 'off';
             } catch (e) { return true; }
         }
+        // v1.1.0: haptic feedback — on unless toolbox_haptics is 'off'
+        // (absent = on), mirroring toolboxSoundOn(). Device-local:
+        // never synced, not cleared by Reset Everything.
+        function toolboxHapticsOn() {
+            try { return localStorage.getItem('toolbox_haptics') !== 'off'; }
+            catch (e) { return true; }
+        }
+        function toolboxHaptic() {
+            try {
+                if (toolboxHapticsOn() && navigator.vibrate) navigator.vibrate(10);
+            } catch (e) {}
+        }
+        function toggleToolboxHaptics() {
+            const on = !toolboxHapticsOn();
+            try { localStorage.setItem('toolbox_haptics', on ? 'on' : 'off'); } catch (e) {}
+            renderFeedbackToggles();
+            if (on) toolboxHaptic();
+            showToast(on ? 'Haptics on.' : 'Haptics off.');
+        }
+        function renderFeedbackToggles() {
+            const s = document.getElementById('settings-sound-toggle');
+            if (s) s.textContent = toolboxSoundOn() ? 'On' : 'Off';
+            const h = document.getElementById('settings-haptics-toggle');
+            if (h) h.textContent = toolboxHapticsOn() ? 'On' : 'Off';
+        }
         function toolboxBeep(freq, durMs, type, vol) {
+            toolboxHaptic();
             try {
                 if (!toolboxSoundOn()) return;
                 __toolboxAudioCtx = __toolboxAudioCtx || new (window.AudioContext || window.webkitAudioContext)();

@@ -38,14 +38,14 @@ The Android app requires Android 8.0 (API 26) or newer.
 
 ### Web (Windows, Mac, and Linux)
 
-1. **Download [Toolbox_v1.0.7.html](https://github.com/shawnrodis/toolbox/releases/download/v1.0.7/Toolbox_v1.0.7.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
+1. **Download [Toolbox_v1.1.0.html](https://github.com/shawnrodis/toolbox/releases/download/v1.1.0/Toolbox_v1.1.0.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
 2. Open `Toolbox.html` in any modern browser — double-clicking the file works.
 
 That's all: the web app is a single self-contained HTML file with no install and no build step. It can also be placed on any static hosting service.
 
 ## Versioning
 
-The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.0.7.apk` and `Toolbox_v1.0.7.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
+The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.1.0.apk` and `Toolbox_v1.1.0.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
 
 ## Add your own API keys
 
@@ -67,7 +67,10 @@ PDF Tools' offline OCR needs **no key**: the Android edition uses on-device text
 
 ## Sync across devices (optional)
 
-Toolbox can optionally keep its settings and tool data in step between your devices using a small sync server that **you** run yourself: the app pushes your changes to your server and pulls newer state back, with the newest change winning. No sync server is provided with Toolbox and no server address is built into the app — in **Settings → Sync Across Devices** you enter your own server address and a sync token that you choose. The complete how-to, including a ready-to-run reference server, is in [SYNC_SERVER.md](SYNC_SERVER.md).
+Toolbox can optionally keep its settings and tool data in step between your devices, with the newest change winning. Pick whichever backend suits you in **Settings → Sync Across Devices**:
+
+- **Own server** — a small sync server that **you** run yourself: you enter your own server address and a sync token that you choose. No sync server is provided with Toolbox and no server address is built into the app. The complete how-to, including a ready-to-run reference server, is in [SYNC_SERVER.md](SYNC_SERVER.md).
+- **Firebase** — no server to run: create a free Firebase project, paste its config into Toolbox, and sign in with an email + password. Your data lives in your own project, readable only by your account. Step-by-step setup is in [FIREBASE_SYNC.md](FIREBASE_SYNC.md).
 
 ## Building from source
 
@@ -91,8 +94,8 @@ Development history and internal build notes live in [DEV_NOTES.md](DEV_NOTES.md
 
 - Toolbox stores its data locally: on-device storage for the Android app, and your browser's local storage for the web app.
 - Toolbox has no hosted backend and no built-in sync address.
-- The only network calls Toolbox makes are to services implied by the features you use: currency-rate lookups, Aviationstack (with your key) for flight lookups, Google Gemini (with your key) for cloud OCR — and your own sync server, only if you set one up.
-- API keys you enter are not built into the app. Note that if you enable Sync, the synced settings include your saved API-key fields, sent only to the sync server address you entered — so run your sync server somewhere you trust, and protect it as described in [SYNC_SERVER.md](SYNC_SERVER.md).
+- The only network calls Toolbox makes are to services implied by the features you use: currency-rate lookups, Aviationstack (with your key) for flight lookups, Google Gemini (with your key) for cloud OCR — and your own sync backend (your server, or your Firebase project), only if you set one up.
+- API keys you enter are not built into the app. Note that if you enable Sync, the synced settings include your saved API-key fields, sent only to the sync backend you configured — so run your sync server somewhere you trust, and protect it as described in [SYNC_SERVER.md](SYNC_SERVER.md), or use your own Firebase project as described in [FIREBASE_SYNC.md](FIREBASE_SYNC.md).
 
 ## License
 

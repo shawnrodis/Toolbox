@@ -6,6 +6,8 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -398,7 +400,47 @@ fun InAppToastHost() {
  * tally add 880/90, tally +/- 740|520/70, tally remove 330/110 triangle,
  * shopping add 880/70, shopping toggle (done ? 660 : 520)/60.
  */
+/**
+ * v1.1.0 — haptic mirror of the beep hook. Every toolboxBeep() call site
+ * (tally +/-, shopping add/toggle, the sound-on confirmation blip) also
+ * fires ONE light 10ms vibration tick when haptics are enabled — the
+ * native counterpart of the web editions' navigator.vibrate(10) inside
+ * toolboxBeep. Gated by its OWN toggle (toolbox_haptics, default ON),
+ * independent of the sound setting: turning sounds off does not silence
+ * the buzz, and vice versa. [enabled] is kept current from the settings
+ * flow by MainActivity; init() is called once at app start.
+ */
+object ToolboxHaptics {
+    @Volatile
+    var enabled: Boolean = true
+
+    @Volatile
+    private var vibrator: Vibrator? = null
+
+    fun init(context: Context) {
+        try {
+            vibrator = context.getSystemService(Vibrator::class.java)
+        } catch (e: Exception) {
+            // No vibrator service: haptics simply no-op.
+        }
+    }
+
+    fun tick() {
+        if (!enabled) return
+        try {
+            vibrator?.vibrate(
+                VibrationEffect.createOneShot(10, VibrationEffect.DEFAULT_AMPLITUDE)
+            )
+        } catch (e: Exception) {
+            // Haptics must never break the action they accompany.
+        }
+    }
+}
+
 fun toolboxBeep(soundOn: Boolean, freq: Int, durMs: Int, type: String = "sine", vol: Double = 0.12) {
+    // v1.1.0: the haptic tick shares the beep's trigger points but is
+    // gated by its own toggle, so it fires before the sound gate.
+    ToolboxHaptics.tick()
     if (!soundOn) return
     Thread { SynthTone.play(freq, durMs, type, vol) }.start()
 }

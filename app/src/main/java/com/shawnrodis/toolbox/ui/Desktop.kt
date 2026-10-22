@@ -406,6 +406,12 @@ fun DesktopShell(
     // minimized/closed -> open; unfocused -> focus.
     fun wmToggle(route: String, areaW: Float, areaH: Float) {
         if (route == "home") {
+            // Source wmShowDesktop(): closeSnapPanel() FIRST, then
+            // minimize every open window, clear focusOrder, blur all.
+            // It does NOT exit Desktop Mode and does NOT restore the
+            // windows on a second press. (v1.1.0 audit fix: the snap
+            // panel close was missing here.)
+            snapOpen = false
             windows.forEach { if (!it.minimized) it.minimized = true }
             focusOrder.clear()
             return
@@ -496,7 +502,13 @@ fun DesktopShell(
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(Unit) {
-                        detectTapGestures(onLongPress = { desktopCtxOpen = true })
+                        // v1.1.0 audit: a tap on the desktop itself is an
+                        // "outside" click in the source and dismisses the
+                        // Start menu (document click handler).
+                        detectTapGestures(
+                            onTap = { startOpen = false },
+                            onLongPress = { desktopCtxOpen = true }
+                        )
                     }
             ) {
                 // v1.0.1 (defect #3): ONE absolute layout — the source's
@@ -551,7 +563,7 @@ fun DesktopShell(
                         DesktopTile(
                             tool = tool,
                             s = s,
-                            onTap = { wmToggle(tool.route, areaW, areaH) },
+                            onTap = { startOpen = false; wmToggle(tool.route, areaW, areaH) },
                             onLongPress = { iconCtxRoute = tool.route }
                         )
                     }
@@ -575,7 +587,7 @@ fun DesktopShell(
                         faIcon = tool?.faIcon ?: "fa-gear",
                         focused = focusedRoute() == win.route,
                         areaW = areaW, areaH = areaH,
-                        onFocus = { wmFocus(win.route) },
+                        onFocus = { startOpen = false; wmFocus(win.route) },
                         onClose = { wmClose(win.route) },
                         onMinimize = { win.minimized = true },
                         onToggleMax = { wmToggleMax(win, areaW, areaH) },
@@ -725,8 +737,16 @@ fun DesktopShell(
                         )
                     }
                     // Source renderTaskbarPins(): Desktop (house) first...
-                    TaskbarButton(s = s, faIcon = "fa-house", label = "Desktop", active = false,
-                        onClick = { wmToggle("home", 0f, 0f) }) {}
+                    // v1.1.0 audit: wmRefreshTaskbarState() marks the
+                    // Desktop pin ACTIVE whenever no window is focused
+                    // (and never "open"); it was hard-coded inactive.
+                    // Like every taskbar click in the source, a pin click
+                    // also dismisses the Start menu (the source's
+                    // document click handler closes it for any click
+                    // outside the menu / Start button).
+                    TaskbarButton(s = s, faIcon = "fa-house", label = "Desktop",
+                        active = focusedRoute() == null,
+                        onClick = { startOpen = false; wmToggle("home", 0f, 0f) }) {}
                     // ...then user pins in pin order...
                     pins.mapNotNull { toolByTabId(it) }.forEach { tool ->
                         TaskbarButton(
@@ -735,11 +755,19 @@ fun DesktopShell(
                             active = focusedRoute() == tool.route &&
                                 windows.any { it.route == tool.route && !it.minimized },
                             open = windows.any { it.route == tool.route },
-                            onClick = { wmToggle(tool.route, lastAreaW, lastAreaH) }
+                            onClick = { startOpen = false; wmToggle(tool.route, lastAreaW, lastAreaH) }
                         ) {}
                     }
                     // ...then open windows not pinned (transient).
+                    // v1.1.0 audit: the source appends these in
+                    // wmGetOpenTabs() order = the windows-registry order
+                    // (tools order), NOT the order windows were opened.
+                    val displayOrder = sortedToolsForDisplay(pins)
                     windows.filter { w -> pins.none { toolByTabId(it)?.route == w.route } }
+                        .sortedBy { w ->
+                            displayOrder.indexOfFirst { it.route == w.route }
+                                .let { idx -> if (idx < 0) Int.MAX_VALUE else idx }
+                        }
                         .forEach { w ->
                             val tool = toolByRoute(w.route)
                             if (tool != null) {
@@ -748,7 +776,7 @@ fun DesktopShell(
                                     faIcon = tool.faIcon, label = tool.name,
                                     active = focusedRoute() == w.route && !w.minimized,
                                     open = true,
-                                    onClick = { wmToggle(w.route, lastAreaW, lastAreaH) }
+                                    onClick = { startOpen = false; wmToggle(w.route, lastAreaW, lastAreaH) }
                                 ) {}
                             }
                         }
@@ -767,15 +795,15 @@ fun DesktopShell(
                 // and the Start menu's "Desktop" entry (both route through
                 // wmToggle("home") here too).
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { scope.launch { store.setSetting("toolbox_dark", "light") } },
+                    IconButton(onClick = { startOpen = false; scope.launch { store.setSetting("toolbox_dark", "light") } },
                         modifier = Modifier.size((42f * s).dp)) {
                         Icon(Icons.Filled.WbSunny, contentDescription = "Light theme", modifier = Modifier.size((18f * s).dp))
                     }
-                    IconButton(onClick = { scope.launch { store.setSetting("toolbox_dark", "dark") } },
+                    IconButton(onClick = { startOpen = false; scope.launch { store.setSetting("toolbox_dark", "dark") } },
                         modifier = Modifier.size((42f * s).dp)) {
                         Icon(Icons.Filled.DarkMode, contentDescription = "Dark theme", modifier = Modifier.size((18f * s).dp))
                     }
-                    IconButton(onClick = { scope.launch { store.setSetting("toolbox_dark", "black") } },
+                    IconButton(onClick = { startOpen = false; scope.launch { store.setSetting("toolbox_dark", "black") } },
                         modifier = Modifier.size((42f * s).dp)) {
                         Icon(Icons.Filled.Circle, contentDescription = "Black theme", modifier = Modifier.size((18f * s).dp))
                     }
@@ -784,10 +812,10 @@ fun DesktopShell(
                         fontSize = (12f * s).sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier
-                            .clickable { wmToggle("time", lastAreaW, lastAreaH) }
+                            .clickable { startOpen = false; wmToggle("time", lastAreaW, lastAreaH) }
                             .padding(horizontal = 4.dp)
                     )
-                    IconButton(onClick = { scope.launch { store.setSound(!settings.sound) } },
+                    IconButton(onClick = { startOpen = false; scope.launch { store.setSound(!settings.sound) } },
                         modifier = Modifier.size((42f * s).dp)) {
                         Icon(
                             if (settings.sound) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
@@ -795,13 +823,14 @@ fun DesktopShell(
                             modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(onClick = { FullscreenState.toggle() }, modifier = Modifier.size((42f * s).dp)) {
+                    IconButton(onClick = { startOpen = false; FullscreenState.toggle() }, modifier = Modifier.size((42f * s).dp)) {
                         Icon(Icons.Filled.Fullscreen, contentDescription = "Toggle fullscreen", modifier = Modifier.size((18f * s).dp))
                     }
-                    IconButton(onClick = { wmToggle("settings", lastAreaW, lastAreaH) }, modifier = Modifier.size((42f * s).dp)) {
+                    IconButton(onClick = { startOpen = false; wmToggle("settings", lastAreaW, lastAreaH) }, modifier = Modifier.size((42f * s).dp)) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings", modifier = Modifier.size((18f * s).dp))
                     }
                     IconButton(onClick = {
+                        startOpen = false
                         windows.clear(); focusOrder.clear()
                     }, modifier = Modifier.size((42f * s).dp)) {
                         Icon(Icons.Filled.Cancel, contentDescription = "Close all apps", modifier = Modifier.size((18f * s).dp))
@@ -814,6 +843,7 @@ fun DesktopShell(
                     // landscape auto-desktop does not bounce straight
                     // back in), and the source's exit toast.
                     IconButton(onClick = {
+                        startOpen = false
                         if (settings.desktopMode) {
                             scope.launch { store.setSetting("toolbox_desktop", "false") }
                         }

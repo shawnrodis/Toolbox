@@ -29,6 +29,10 @@ data class AppSettings(
     val customAccent: String = "#6366f1",
     // Source: toolboxSoundOn() — sound is on unless explicitly turned off.
     val sound: Boolean = true,
+    // v1.1.0: toolbox_haptics — haptic feedback is ON unless explicitly
+    // turned off ("off"), mirroring toolboxSoundOn(). Device-local:
+    // never synced, not part of Reset Everything's key lists.
+    val haptics: Boolean = true,
     // API keys: USER-ENTERED ONLY, stored on-device. Never hardcoded.
     val aviationstackKey: String = "",
     val geminiKey1: String = "",
@@ -64,6 +68,13 @@ val RESET_KEYS_SYNC: List<String> = listOf(
     "toolbox_sync_meta", "toolbox_sync_pending"
 )
 
+/**
+ * v1.1.0: haptics are on unless the stored toolbox_haptics value is
+ * exactly "off" (absent = on) — the same rule as the web editions'
+ * toolboxHapticsOn() and the sound setting's toolboxSoundOn().
+ */
+fun hapticsOn(stored: String?): Boolean = stored != "off"
+
 class AppStore(private val context: Context) {
     private val ds: DataStore<Preferences> get() = context.toolboxDataStore
 
@@ -94,6 +105,7 @@ class AppStore(private val context: Context) {
             accent = p[stringPreferencesKey("toolbox_accent")] ?: "indigo",
             customAccent = p[stringPreferencesKey("toolbox_custom_accent")] ?: "#6366f1",
             sound = p[booleanPreferencesKey("toolbox_sound")] ?: true,
+            haptics = hapticsOn(p[stringPreferencesKey("toolbox_haptics")]),
             aviationstackKey = p[stringPreferencesKey("toolbox_aviationstack_key")] ?: "",
             geminiKey1 = p[stringPreferencesKey("toolbox_gemini_key_1")] ?: "",
             geminiKey2 = p[stringPreferencesKey("toolbox_gemini_key_2")] ?: "",
@@ -115,6 +127,11 @@ class AppStore(private val context: Context) {
 
     suspend fun setSound(value: Boolean) {
         ds.edit { it[booleanPreferencesKey("toolbox_sound")] = value }
+    }
+
+    /** v1.1.0: persist the haptics toggle as "on"/"off" (web parity). */
+    suspend fun setHaptics(value: Boolean) {
+        ds.edit { it[stringPreferencesKey("toolbox_haptics")] = if (value) "on" else "off" }
     }
 
     /** Raw persisted state (usually JSON), keyed by the original localStorage key name. */

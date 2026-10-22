@@ -7,6 +7,10 @@
          api.aviationstack.com — both exactly like the source HTML app.
          No other permission is needed by any tool so far. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- v1.1.0: haptic feedback (a single light 10ms tick mirroring the
+         web editions' navigator.vibrate(10) at the beep trigger points),
+         gated by the toolbox_haptics Settings toggle (default on). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Legacy (API <= 28) "download" of PDF Tool outputs / exports to the
          public Downloads folder, mirroring the web app's downloadBlob.
          On API 29+ MediaStore is used and needs no permission. -->
