@@ -5,6 +5,34 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-22):** **v1.0.7** — versionCode 12, versionName `1.0.7`.
+  One on-device fix (Shawn): **SpongeBob Meme Generator now regenerates
+  live while typing.** The source textarea carries
+  `oninput="window.sbmHandleInput()"`, and `sbmHandleInput()` on EVERY
+  keystroke updates the "N chars" counter, re-runs `sbmGenerateMeme()`,
+  and persists the text to `toolbox_sbm_state`. The native port only
+  regenerated on the Generate button, the mode toggle, and once at load —
+  typing alone changed nothing on screen. Fix (`NotesSpongeScreens.kt`):
+  a new `sbmGenerateOutput()` helper mirrors `sbmGenerateMeme()` exactly
+  (blank/whitespace-only input → the `gEnErAtEd tExT HeRe` placeholder via
+  the source's `!input.trim()` check; otherwise `sbmSpongeTransform`),
+  and the text field's `onValueChange` now runs it on every change
+  alongside the existing persist — so output, counter, and saved state
+  all track each keystroke. The restore path (saved text on open) uses
+  the same helper, matching the source calling `sbmHandleInput()` after
+  restoring; the Generate button and mode toggle also route through it,
+  exactly as the source's button and `sbmToggleMode()` call
+  `sbmGenerateMeme()`. Clear is untouched. No caching: alternating mode
+  still re-randomises the first letter's case per transform, per keystroke,
+  as in the source. The "N chars" counter already existed under the
+  field; it is now right-aligned to mirror the source's `#sbm-char-count`
+  at the field's bottom-right (it derives from the input state, so it
+  updates on every keystroke with no extra wiring). New unit tests
+  (`V107SpongeLiveTest`) pin the generate semantics property-wise
+  (blank → placeholder, strict alternation, non-letters untouched,
+  per-prefix typing simulation).
+  Version alignment: native Settings footer "Version 1.0.7"; both HTML
+  editions restamped 1.0.6 → 1.0.7 (same 3 lines each, diff-verified).
 - **Status (2026-10-22):** **v1.0.6** — versionCode 11, versionName `1.0.6`.
   Three on-device fixes, all in tool previews/exports (Shawn, v1.0.5
   screenshots):

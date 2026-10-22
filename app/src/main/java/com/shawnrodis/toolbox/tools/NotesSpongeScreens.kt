@@ -232,7 +232,18 @@ fun sbmSpongeTransform(str: String, randomMode: Boolean): String {
 }
 
 /**
+ * Source sbmGenerateMeme(): blank input (empty or whitespace-only — the
+ * source checks `!inputVal.trim()`) shows the placeholder; anything else
+ * goes through sbmSpongeTransform. Every regeneration path in the source
+ * funnels through it: typing (sbmHandleInput), the Generate button, and
+ * the mode toggle (sbmToggleMode).
+ */
+fun sbmGenerateOutput(str: String, randomMode: Boolean): String =
+    if (str.isBlank()) "gEnErAtEd tExT HeRe" else sbmSpongeTransform(str, randomMode)
+
+/**
  * SpongeBob Meme Generator — text persists in toolbox_sbm_state (source);
+ * typing regenerates live via the sbmHandleInput mirror in onValueChange;
  * "Press Enter to copy" in web becomes an explicit Copy button natively;
  * mode toggle label Alternating / Randomized (source sbmToggleMode).
  */
@@ -248,8 +259,10 @@ fun SpongeScreen(store: AppStore, onBack: () -> Unit) {
 
     androidx.compose.runtime.LaunchedEffect(savedText) {
         if (!loaded && savedText.isNotEmpty()) {
+            // Source restores the saved text then calls sbmHandleInput(),
+            // so the generated output is visible immediately on open.
             input = savedText
-            output = sbmSpongeTransform(savedText, randomMode)
+            output = sbmGenerateOutput(savedText, randomMode)
             loaded = true
         }
     }
@@ -294,7 +307,13 @@ fun SpongeScreen(store: AppStore, onBack: () -> Unit) {
         OutlinedTextField(
             value = input,
             onValueChange = { v ->
+                // Source sbmHandleInput() (textarea oninput) — on EVERY
+                // keystroke: (1) regenerate the output live via
+                // sbmGenerateMeme semantics, (2) refresh the "N chars"
+                // counter (derived from `input`, so it updates with this
+                // state change), (3) persist to toolbox_sbm_state.
                 input = v
+                output = sbmGenerateOutput(v, randomMode)
                 scope.launch { store.setStringState("toolbox_sbm_state", v) }
             },
             label = { Text("insert text here") },
@@ -302,10 +321,16 @@ fun SpongeScreen(store: AppStore, onBack: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             minLines = 3
         )
-        Text("${input.length} chars", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Source #sbm-char-count sits at the field's bottom-right.
+        Text(
+            "${input.length} chars",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            modifier = Modifier.fillMaxWidth()
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-            Button(onClick = { output = sbmSpongeTransform(input, randomMode) }) { Text("gEnErAtE SpOnGeBoB TeXt!") }
+            Button(onClick = { output = sbmGenerateOutput(input, randomMode) }) { Text("gEnErAtE SpOnGeBoB TeXt!") }
             OutlinedButton(onClick = {
                 input = ""
                 output = sbmSpongeTransform("", randomMode)
@@ -315,8 +340,9 @@ fun SpongeScreen(store: AppStore, onBack: () -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
             Text("Mode:", style = MaterialTheme.typography.bodyMedium)
             TextButton(onClick = {
+                // Source sbmToggleMode(): flip the mode, then sbmGenerateMeme().
                 randomMode = !randomMode
-                output = sbmSpongeTransform(input, randomMode)
+                output = sbmGenerateOutput(input, randomMode)
             }) { Text(if (randomMode) "Randomized" else "Alternating") }
         }
         Card(modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {

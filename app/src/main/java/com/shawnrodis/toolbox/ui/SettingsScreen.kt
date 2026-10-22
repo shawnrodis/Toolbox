@@ -339,7 +339,7 @@ fun SettingsScreen(store: AppStore, onBack: () -> Unit) {
         // v1.0.5: version footer parity with the web editions, which show
         // "Toolbox · Web Edition · Version X" at the bottom of Settings.
         Text(
-            "Toolbox · Android Edition · Version 1.0.6",
+            "Toolbox · Android Edition · Version 1.0.7",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
