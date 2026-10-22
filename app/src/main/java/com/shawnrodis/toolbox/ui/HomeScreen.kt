@@ -25,15 +25,19 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,6 +55,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.shawnrodis.toolbox.data.AppStore
+import com.shawnrodis.toolbox.data.UPDATE_DISMISSED_KEY
+import com.shawnrodis.toolbox.data.UpdateManager
+import com.shawnrodis.toolbox.data.updateBannerVisible
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 
@@ -172,6 +179,57 @@ fun HomeScreen(store: AppStore, homeView: String, onOpen: (String) -> Unit) {
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Toolbox", style = MaterialTheme.typography.headlineMedium)
+        // v1.2.0: calm update notice — shown only when a newer release
+        // exists and this version hasn't been dismissed (per-version
+        // dismissal in toolbox_update_dismissed). Details live in
+        // Settings → App updates.
+        val updates = remember { UpdateManager.get(context.applicationContext, store) }
+        val updateState by updates.state.collectAsState()
+        val dismissed by store.stringState(UPDATE_DISMISSED_KEY, "").collectAsState(initial = "")
+        val currentVersion = remember { updates.currentVersion() }
+        val latestVersion = updateState.latestVersion
+        if (updateBannerVisible(currentVersion, latestVersion, dismissed.ifEmpty { null })) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.SystemUpdateAlt,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        "Toolbox v$latestVersion is available",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { onOpen("settings") }) { Text("Details") }
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                store.setStringStateRaw(UPDATE_DISMISSED_KEY, latestVersion!!)
+                            }
+                        }
+                    ) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = "Dismiss update notice",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },

@@ -1,5 +1,7 @@
 package com.shawnrodis.toolbox.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RotateLeft
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.VolumeUp
@@ -81,6 +84,9 @@ import com.shawnrodis.toolbox.data.SYNC_PROVIDER_SERVER
 import com.shawnrodis.toolbox.data.SYNC_TOKEN_KEY
 import com.shawnrodis.toolbox.data.SYNC_URL_KEY
 import com.shawnrodis.toolbox.data.SyncManager
+import com.shawnrodis.toolbox.data.UPDATE_RELEASES_PAGE_URL
+import com.shawnrodis.toolbox.data.UpdateManager
+import com.shawnrodis.toolbox.data.isUpdateAvailable
 import com.shawnrodis.toolbox.data.parseFirebaseConfig
 import com.shawnrodis.toolbox.data.syncConfigured
 import com.shawnrodis.toolbox.data.syncGetInterval
@@ -100,7 +106,8 @@ import kotlinx.coroutines.launch
  *   header (Toolbox / Settings & Preferences) → Accent Color Theme →
  *   Home Screen Style → UI Size & Scale → Desktop Mode → Fullscreen →
  *   Appearance Theme → Sounds & Haptics → API Keys → Sync Across
- *   Devices (+ Auto-sync) → Reset Everything → version footer.
+ *   Devices (+ Auto-sync) → Reset Everything → App updates →
+ *   version footer.
  * Fullscreen and the Sound toggle are header/taskbar actions in the
  * source; they live here as native citizens of the same card design
  * (Sound since Phase 1, Fullscreen since the parity pass), and the
@@ -742,11 +749,14 @@ fun SettingsScreen(store: AppStore, onBack: () -> Unit) {
 
             // ---- Reset Everything ---------------------------------------
             ResetEverythingCard(store, palette)
+
+            // ---- App updates (v1.2.0) -----------------------------------
+            AppUpdatesCard(store, palette)
         }
 
         // v1.0.5: version footer parity with the web editions.
         Text(
-            "Toolbox · Android Edition · Version 1.1.1",
+            "Toolbox · Android Edition · Version 1.2.0",
             fontSize = 11.sp,
             color = palette.subtle,
             textAlign = TextAlign.Center,
@@ -1008,6 +1018,107 @@ private fun SyncSettingsCard(store: AppStore, palette: SettingsPalette) {
             "While the app is open it syncs on this interval, like the web page. " +
                 "In the background Android enforces a 15-minute minimum, so shorter " +
                 "intervals fully apply only while the app is open."
+        )
+    }
+}
+
+/**
+ * "App updates" card (v1.2.0) — the Settings home of the update
+ * checker (see UpdateChecker.kt): current vs latest version, a manual
+ * Check button, and on Android the one-tap Download & install flow
+ * (download the release APK in-app, verify it is really this app's
+ * package, then hand it to the system installer, which the user
+ * confirms — Android has no silent install for sideloaded apps).
+ */
+@Composable
+private fun AppUpdatesCard(store: AppStore, palette: SettingsPalette) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val updates = remember { UpdateManager.get(context.applicationContext, store) }
+    val state by updates.state.collectAsState()
+    val current = remember { updates.currentVersion() }
+    val latest = state.latestVersion
+    val updateAvailable = isUpdateAvailable(current, latest)
+
+    SettingsCard(palette) {
+        SettingsCardHeader(
+            palette, Icons.Filled.SystemUpdateAlt, "App Updates",
+            "Current version v$current · checks GitHub once a day"
+        )
+        Text(
+            when {
+                state.checking -> "Checking for updates…"
+                state.error != null -> state.error!!
+                updateAvailable -> "Update available: v$latest"
+                latest != null -> "You're up to date"
+                else -> "Not checked yet"
+            },
+            fontSize = 11.sp,
+            fontWeight = if (updateAvailable) FontWeight.Bold else FontWeight.Normal,
+            color = if (updateAvailable) palette.main else palette.subtle
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SettingsPillButton(
+                palette,
+                text = if (state.checking) "Checking…" else "Check for updates",
+                enabled = !state.checking
+            ) { updates.checkNow() }
+            if (updateAvailable && state.apkUrl != null) {
+                SettingsPillButton(
+                    palette,
+                    text = if (state.downloading) "Downloading…" else "Download & install",
+                    accent = true,
+                    enabled = !state.downloading
+                ) {
+                    if (!updates.canInstall()) {
+                        toast(
+                            context,
+                            "Allow Toolbox to install updates, then tap Download & install again."
+                        )
+                        try {
+                            context.startActivity(updates.unknownSourcesIntent())
+                        } catch (e: Exception) {
+                            toast(context, "Open Android Settings → Apps → Toolbox → Install unknown apps.")
+                        }
+                    } else {
+                        scope.launch {
+                            val file = updates.downloadUpdate()
+                            if (file != null) {
+                                try {
+                                    context.startActivity(updates.installIntent(file))
+                                } catch (e: Exception) {
+                                    toast(context, "Couldn't open the installer.")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (state.downloading) {
+            Text(
+                if (state.downloadPercent >= 0) "Downloading… ${state.downloadPercent}%"
+                else "Downloading…",
+                fontSize = 10.sp, color = palette.subtle
+            )
+        }
+        if (state.downloadError != null) {
+            Text(state.downloadError!!, fontSize = 10.sp, color = palette.subtle)
+            SettingsPillButton(palette, text = "Open releases page") {
+                try {
+                    context.startActivity(
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(state.releasePageUrl ?: UPDATE_RELEASES_PAGE_URL)
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                } catch (e: Exception) { /* no browser: nothing more to do */ }
+            }
+        }
+        SettingsHint(
+            palette,
+            "The check is a single request to GitHub asking for the latest release — " +
+                "nothing about you or your data is sent."
         )
     }
 }

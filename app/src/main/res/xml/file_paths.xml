@@ -3,6 +3,9 @@
      PDF Tools) through the Android share sheet via FileProvider. -->
 <paths>
     <cache-path name="shared" path="shared/" />
+    <!-- v1.2.0: downloaded update APKs (update checker) shared with the
+         system package installer. -->
+    <cache-path name="updates" path="updates/" />
     <files-path name="shared_files" path="shared/" />
     <external-files-path name="shared_ext" path="shared/" />
 </paths>

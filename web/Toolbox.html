@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Toolbox (Shawn Rodis) — Web Edition v1.1.1 -->
+<!-- Toolbox (Shawn Rodis) — Web Edition v1.2.0 -->
 <html lang="en" id="html-root" class="h-full w-full dark black selection:bg-indigo-500 selection:text-white overflow-x-hidden" data-accent="indigo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Toolbox (Shawn Rodis)</title>
-    <meta name="version" content="1.1.1">
+    <meta name="version" content="1.2.0">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -784,6 +784,18 @@
 
         <!-- TAB 0: HOMESCREEN (LAUNCHER HUB) -->
         <section id="tab-home" class="tab-content space-y-4">
+            <!-- v1.2.0: update notice (filled in by the update checker when a newer release exists and wasn't dismissed) -->
+            <div id="update-banner" class="hidden items-center gap-2 p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl">
+                <div class="p-2 accent-icon-box rounded-lg">
+                    <i class="fa-solid fa-cloud-arrow-down text-xs"></i>
+                </div>
+                <p id="update-banner-text" class="flex-1 text-[11px] font-semibold text-slate-900 dark:text-white">A new version of Toolbox is available.</p>
+                <button onclick="switchTab('tab-settings')" class="px-3 py-1.5 accent-bg text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition">See update</button>
+                <button onclick="updateDismissBanner()" title="Dismiss" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center border border-slate-200 dark:border-zinc-800">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+            </div>
+
             <!-- Search Tools Input -->
             <div class="relative">
                 <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
@@ -1688,11 +1700,30 @@
                             Reset Everything
                         </button>
                     </div>
+
+                    <!-- v1.2.0: App updates (update checker, see the Toolbox Update Checker script) -->
+                    <div class="p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl space-y-2">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2 bg-slate-200 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 rounded-lg">
+                                <i class="fa-solid fa-cloud-arrow-down"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-xs text-slate-900 dark:text-white">App Updates</h3>
+                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.2.0</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button onclick="updateCheckNow()" class="px-3 py-1.5 bg-slate-200 dark:bg-zinc-900 hover:bg-slate-300 dark:hover:bg-zinc-800 text-slate-900 dark:text-white rounded-xl font-bold text-xs transition active:scale-95">Check for updates</button>
+                            <a id="update-download" href="#" class="hidden px-3 py-1.5 accent-bg text-white rounded-xl font-bold text-xs shadow-md active:scale-95 transition">Download the new version</a>
+                            <span id="update-status" class="text-[10px] text-slate-400">Not checked yet</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400">Downloading gives you the new Toolbox file — open it once it's saved; your saved data stays in this browser.</p>
+                    </div>
                 </div>
             </div>
         </section>
 
-                <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.1.1</div>
+                <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.2.0</div>
 <section id="tab-skytrack" class="tab-content space-y-4 hidden relative">
 
             <div class="sky-header border-b px-3 py-3 rounded-2xl flex items-center justify-between">
@@ -8204,5 +8235,194 @@ let sbmIsRandomMode = false;
         })();
     </script>
 
+    <script>
+/* ============ Toolbox Update Checker : BEGIN ============ */
+// v1.2.0 — asks GitHub (the public Releases API of the app's own
+// repo) for the latest release and compares it with this file's own
+// version stamp (<meta name="version">). One unauthenticated GET per
+// check, nothing about the user or their data is sent. Automatic
+// checks are throttled to one attempt per 24 h and fail silently;
+// the Settings → App Updates card also has a manual check that
+// reports failures. A web page cannot replace the file it came
+// from, so the action is a one-click download of the new file.
+// Bookkeeping keys are device-local (never in SYNC_KEYS).
+const UPDATE_API_URL = 'https://api.github.com/repos/shawnrodis/toolbox/releases/latest';
+const UPDATE_RELEASES_URL = 'https://github.com/shawnrodis/toolbox/releases/latest';
+const UPDATE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const UPDATE_LS_LAST = 'toolbox_update_last_check';
+const UPDATE_LS_LATEST = 'toolbox_update_latest_version';
+const UPDATE_LS_HTML = 'toolbox_update_html_url';
+const UPDATE_LS_DISMISSED = 'toolbox_update_dismissed';
+
+function toolboxVersion() {
+    try {
+        const m = document.querySelector('meta[name="version"]');
+        if (m && m.content) return String(m.content).trim();
+    } catch (e) { /* stubbed DOM in tests */ }
+    return '0.0.0';
+}
+
+// Numeric parts: strip a leading v/V, drop -pre/+build suffixes,
+// non-numeric parts count as 0. Mirrors the Android versionParts().
+function updateVersionParts(v) {
+    let s = String(v == null ? '' : v).trim();
+    if (s.charAt(0) === 'v' || s.charAt(0) === 'V') s = s.slice(1);
+    s = s.split('-')[0].split('+')[0].trim();
+    if (!s) return [0];
+    return s.split('.').map(p => {
+        const n = parseInt(p, 10);
+        return isNaN(n) ? 0 : n;
+    });
+}
+
+// -1 / 0 / 1 as a is older than / equal to / newer than b.
+function updateCompareVersions(a, b) {
+    const pa = updateVersionParts(a), pb = updateVersionParts(b);
+    const n = Math.max(pa.length, pb.length);
+    for (let i = 0; i < n; i++) {
+        const x = pa[i] || 0, y = pb[i] || 0;
+        if (x !== y) return x < y ? -1 : 1;
+    }
+    return 0;
+}
+
+function updateIsAvailable(current, latest) {
+    return !!latest && updateCompareVersions(latest, current) > 0;
+}
+
+function updateShouldCheck(lastMs, nowMs) {
+    return !lastMs || (nowMs - lastMs) >= UPDATE_INTERVAL_MS;
+}
+
+// Picks the release's assets by NAME (Toolbox_v*.apk / *.html,
+// first match wins); download URLs are used verbatim from the API.
+function updatePickAssets(json) {
+    if (!json || !json.tag_name) return null;
+    const version = String(json.tag_name).replace(/^v/i, '');
+    let apkUrl = null, htmlUrl = null;
+    const assets = Array.isArray(json.assets) ? json.assets : [];
+    for (const a of assets) {
+        if (!a || !a.name || !a.browser_download_url) continue;
+        if (apkUrl === null && /^Toolbox_v.+\.apk$/.test(a.name)) apkUrl = a.browser_download_url;
+        if (htmlUrl === null && /^Toolbox_v.+\.html$/.test(a.name)) htmlUrl = a.browser_download_url;
+    }
+    return { version, apkUrl, htmlUrl, releaseUrl: json.html_url || UPDATE_RELEASES_URL };
+}
+
+function updateBannerVisible(current, latest, dismissed) {
+    return updateIsAvailable(current, latest) && dismissed !== latest;
+}
+
+let updateChecking = false;
+let updateError = null;
+let updateLatestCache = null; // last parsed release info (this session)
+
+function updateLatestKnown() {
+    if (updateLatestCache) return updateLatestCache;
+    try {
+        const v = localStorage.getItem(UPDATE_LS_LATEST);
+        if (v) {
+            return {
+                version: v,
+                apkUrl: null,
+                htmlUrl: localStorage.getItem(UPDATE_LS_HTML) || null,
+                releaseUrl: UPDATE_RELEASES_URL
+            };
+        }
+    } catch (e) { /* storage unavailable */ }
+    return null;
+}
+
+async function updateRunCheck(manual) {
+    if (updateChecking) return;
+    updateChecking = true;
+    updateRender();
+    try { localStorage.setItem(UPDATE_LS_LAST, String(Date.now())); } catch (e) { /* ignore */ }
+    try {
+        const res = await fetch(UPDATE_API_URL, { headers: { 'Accept': 'application/vnd.github+json' } });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const info = updatePickAssets(await res.json());
+        if (!info) throw new Error('bad response');
+        updateLatestCache = info;
+        updateError = null;
+        try {
+            localStorage.setItem(UPDATE_LS_LATEST, info.version);
+            localStorage.setItem(UPDATE_LS_HTML, info.htmlUrl || '');
+        } catch (e) { /* storage unavailable */ }
+    } catch (e) {
+        if (manual) updateError = "Couldn't check for updates — check your connection and try again.";
+    }
+    updateChecking = false;
+    updateRender();
+}
+
+// Manual check (Settings button): ignores the 24 h throttle.
+function updateCheckNow() { updateRunCheck(true); }
+
+function updateDismissBanner() {
+    const info = updateLatestKnown();
+    if (info) {
+        try { localStorage.setItem(UPDATE_LS_DISMISSED, info.version); } catch (e) { /* ignore */ }
+    }
+    updateRender();
+}
+
+function updateRender() {
+    try {
+        const current = toolboxVersion();
+        const info = updateLatestKnown();
+        const latest = info ? info.version : null;
+        const available = updateIsAvailable(current, latest);
+
+        const cur = document.getElementById('update-current');
+        if (cur) cur.textContent = 'v' + current;
+
+        const status = document.getElementById('update-status');
+        if (status) {
+            status.textContent = updateChecking ? 'Checking for updates…'
+                : updateError ? updateError
+                : available ? 'Update available: v' + latest
+                : latest ? "You're up to date"
+                : 'Not checked yet';
+        }
+
+        const dl = document.getElementById('update-download');
+        if (dl) {
+            if (available) {
+                dl.href = (info && info.htmlUrl) || UPDATE_RELEASES_URL;
+                dl.classList.remove('hidden');
+            } else {
+                dl.classList.add('hidden');
+            }
+        }
+
+        let dismissed = null;
+        try { dismissed = localStorage.getItem(UPDATE_LS_DISMISSED); } catch (e) { /* ignore */ }
+        const banner = document.getElementById('update-banner');
+        if (banner) {
+            if (updateBannerVisible(current, latest, dismissed)) {
+                const txt = document.getElementById('update-banner-text');
+                if (txt) txt.textContent = 'Toolbox v' + latest + ' is available.';
+                banner.classList.remove('hidden');
+                banner.classList.add('flex');
+            } else {
+                banner.classList.add('hidden');
+                banner.classList.remove('flex');
+            }
+        }
+    } catch (e) { /* the updater must never break the app */ }
+}
+
+function updateInit() {
+    try {
+        updateRender();
+        let last = 0;
+        try { last = parseInt(localStorage.getItem(UPDATE_LS_LAST) || '0', 10) || 0; } catch (e) { /* ignore */ }
+        if (updateShouldCheck(last, Date.now())) updateRunCheck(false);
+    } catch (e) { /* never break startup over an update check */ }
+}
+updateInit();
+/* ============ Toolbox Update Checker : END ============ */
+    </script>
 </body>
 </html>

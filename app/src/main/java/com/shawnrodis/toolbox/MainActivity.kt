@@ -52,6 +52,7 @@ import com.shawnrodis.toolbox.data.AppSettings
 import com.shawnrodis.toolbox.data.AppStore
 import com.shawnrodis.toolbox.data.accentColor
 import com.shawnrodis.toolbox.data.SyncManager
+import com.shawnrodis.toolbox.data.UpdateManager
 import com.shawnrodis.toolbox.tools.CurrencyScreen
 import com.shawnrodis.toolbox.tools.FlightTrackerContent
 import com.shawnrodis.toolbox.tools.FlightTrackerScreen
@@ -109,6 +110,10 @@ class MainActivity : ComponentActivity() {
             // tick) — the native syncStartup()/syncApplySchedule() at boot.
             val sync = remember { SyncManager.get(applicationContext, store) }
             LaunchedEffect(Unit) { sync.start() }
+            // v1.2.0: update checker — one throttled (24 h) silent
+            // check per launch window against the GitHub Releases API.
+            val updates = remember { UpdateManager.get(applicationContext, store) }
+            LaunchedEffect(Unit) { updates.autoCheck() }
             val settings by store.settings.collectAsState(initial = AppSettings())
             // v1.1.0: haptics hook — init the vibrator once and keep the
             // central beep-hook gate current with the Settings toggle.

@@ -5,6 +5,58 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-22):** **v1.2.0** — versionCode 15, versionName `1.2.0`.
+  Feature build (GitHub editions only): an in-app **update checker**
+  for both editions plus one-tap install on Android.
+  - **Source of truth:** `GET https://api.github.com/repos/shawnrodis/toolbox/releases/latest`
+    (public, unauthenticated). The tag is compared against the app's
+    own version (Android versionName; the web file's `<meta
+    name="version">` stamp) with a numeric X.Y.Z comparison (strip
+    "v", missing parts = 0, -pre/+build suffixes dropped) —
+    `data/UpdateChecker.kt` natively, the "Toolbox Update Checker"
+    block in web/Toolbox.html; identical rules and `toolbox_update_*`
+    key names in both editions.
+  - **Cadence/surfaces:** automatic check on launch, throttled to
+    one ATTEMPT per 24 h (attempt time stamped up front), silent on
+    failure; manual check any time from the new **Settings → App
+    updates** card, which reports failures plainly. A found update
+    surfaces in exactly two calm places: a dismissible Home banner
+    (dismissal remembered per version) and the Settings card.
+    Bookkeeping (`toolbox_update_last_check / _latest_version /
+    _apk_url / _html_url / _release_url / _dismissed`) is
+    device-local — never synced, untouched by Reset Everything.
+  - **Android one-tap install:** the release APK asset is chosen by
+    NAME (`Toolbox_v*.apk`, first match; its browser_download_url is
+    used verbatim, never constructed) and downloaded to
+    `cacheDir/updates/` with progress, then VERIFIED to be this app's
+    package (`getPackageArchiveInfo` == `com.shawnrodis.toolbox`)
+    before being handed via FileProvider to the system installer
+    (ACTION_VIEW, package-archive MIME) — the user confirms the
+    install; Android has no silent install for sideloaded apps. If
+    "install unknown apps" isn't granted for Toolbox
+    (`canRequestPackageInstalls()`), the tap first routes to that
+    system settings screen with an explaining toast. Adds the
+    `REQUEST_INSTALL_PACKAGES` permission and a `updates/` cache-path
+    FileProvider entry. Download failure offers a retry plus an
+    "Open releases page" fallback.
+  - **Web:** the page cannot replace its own file, so the action is
+    **Download the new version** (the release's `Toolbox_v*.html`
+    asset URL from the API, releases page as fallback) with honest
+    helper text ("open it once it's saved; your saved data stays in
+    this browser").
+  - **Tests:** `V120UpdateCheckerTest` (14 JVM tests: comparison,
+    parsing/asset selection incl. decoys, throttle, dismissal) and
+    `web/test/update-checker.test.mjs` (31 node checks driving the
+    real extracted checker: units plus a full auto-check round trip,
+    manual-failure reporting, dismissal, and the throttled no-fetch
+    load). All inline web scripts re-verified with a parse pass.
+  - **Not verifiable in this environment:** the actual on-device
+    installer prompt and the unknown-sources settings round trip
+    (no device/emulator here) — the code path is compile-verified
+    and the package-name/permission gates are unit-reasoned, but the
+    first real install prompt happens on Shawn's phone.
+  - **Version alignment:** versionCode 15 / versionName 1.2.0;
+    Settings footers and the web edition's 3 stamps at 1.2.0.
 - **Status (2026-10-22):** **v1.1.1** — versionCode 14, versionName `1.1.1`.
   Fix build (GitHub editions only — the personal web edition was
   retired earlier today): guarantee the user-entered API keys

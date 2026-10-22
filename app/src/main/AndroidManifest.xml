@@ -11,6 +11,11 @@
          web editions' navigator.vibrate(10) at the beep trigger points),
          gated by the toolbox_haptics Settings toggle (default on). -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- v1.2.0: the in-app update checker downloads the new release APK
+         and hands it to the system package installer (the user always
+         confirms the install — Android has no silent install for
+         sideloaded apps). Only used by Settings → App updates. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Legacy (API <= 28) "download" of PDF Tool outputs / exports to the
          public Downloads folder, mirroring the web app's downloadBlob.
          On API 29+ MediaStore is used and needs no permission. -->

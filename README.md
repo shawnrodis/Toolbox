@@ -38,14 +38,21 @@ The Android app requires Android 8.0 (API 26) or newer.
 
 ### Web (Windows, Mac, and Linux)
 
-1. **Download [Toolbox_v1.1.1.html](https://github.com/shawnrodis/toolbox/releases/download/v1.1.1/Toolbox_v1.1.1.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
+1. **Download [Toolbox_v1.2.0.html](https://github.com/shawnrodis/toolbox/releases/download/v1.2.0/Toolbox_v1.2.0.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
 2. Open `Toolbox.html` in any modern browser — double-clicking the file works.
 
 That's all: the web app is a single self-contained HTML file with no install and no build step. It can also be placed on any static hosting service.
 
 ## Versioning
 
-The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.1.1.apk` and `Toolbox_v1.1.1.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
+The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.2.0.apk` and `Toolbox_v1.2.0.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
+
+## Updates
+
+Both editions check for new versions themselves. On launch — at most once a day — the app asks this repository's GitHub Releases for the latest version (a single unauthenticated request to `api.github.com`; nothing about you or your data is sent, and there is no analytics). You can also check any time in **Settings → App updates**, where the current and latest versions are shown.
+
+- **Android:** when an update exists, tap **Download & install** — the app downloads the new APK itself and opens Android's installer for you to confirm (Android does not allow sideloaded apps to install silently). Your data carries over, as with any reinstall-over.
+- **Web:** when an update exists, the home tab shows a small notice and Settings offers **Download the new version** — a web page can't replace the file it came from, so save the new file and open it; your saved data stays in your browser.
 
 ## Add your own API keys
 
