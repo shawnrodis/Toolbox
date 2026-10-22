@@ -39,9 +39,9 @@ import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Minimize
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.RestartAlt
@@ -126,7 +126,11 @@ import kotlin.math.roundToInt
  *    shows an active indicator; snap-layouts button (toggleSnapPanel);
  *    right tray = theme segment (Light/Dark/Black), desktop clock
  *    (updateDesktopClock, click opens Time Converter window), sound
- *    toggle (toggleToolboxSound), fullscreen toggle, Settings, Close-all.
+ *    toggle (toggleToolboxSound), fullscreen toggle, Settings, Close-all,
+ *    Exit desktop mode (taskbar-exit-btn, LAST — v1.0.5). Show Desktop
+ *    (wmShowDesktop) is not a tray button in the source: it is reached via
+ *    the Desktop (house) pin and the Start menu's "Desktop" entry, both
+ *    of which route through wmToggle("home") here as in the source.
  *  - Start menu (renderStartMenu): "Desktop" entry + all tools with
  *    descriptions, filtered by the search field.
  *  - Snap panel (buildSnapPanel/applySnapLayout): the source's six
@@ -308,6 +312,10 @@ private fun parseIconOpts(json: String): Pair<Boolean, Boolean> = try {
 fun DesktopShell(
     store: AppStore,
     settings: AppSettings,
+    // v1.0.5: the tray Exit button's hook into ToolboxApp — sets the
+    // manual-off suppress-auto latch (the persisted write + toast happen
+    // here in the shell, mirroring the header toggle's off-path).
+    onExitDesktop: () -> Unit = {},
     toolContent: @Composable (route: String, onCloseWindow: () -> Unit) -> Unit
 ) {
     val context = LocalContext.current
@@ -751,8 +759,13 @@ fun DesktopShell(
                     }
                 }
 
-                // Right tray: theme segment, clock, sound, fullscreen,
-                // settings, show desktop, close all.
+                // Right tray — source .taskbar-tray order: theme segment,
+                // clock, sound, fullscreen, Settings, Close all apps,
+                // Exit desktop mode (LAST). v1.0.5: the native-only tray
+                // "Show desktop" button is gone — the source exposes
+                // wmShowDesktop() only via the Desktop (house) taskbar pin
+                // and the Start menu's "Desktop" entry (both route through
+                // wmToggle("home") here too).
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { scope.launch { store.setSetting("toolbox_dark", "light") } },
                         modifier = Modifier.size((42f * s).dp)) {
@@ -789,15 +802,25 @@ fun DesktopShell(
                         Icon(Icons.Filled.Settings, contentDescription = "Settings", modifier = Modifier.size((18f * s).dp))
                     }
                     IconButton(onClick = {
-                        windows.forEach { if (!it.minimized) it.minimized = true }
-                        focusOrder.clear()
-                    }, modifier = Modifier.size((42f * s).dp)) {
-                        Icon(Icons.Filled.Minimize, contentDescription = "Show desktop", modifier = Modifier.size((18f * s).dp))
-                    }
-                    IconButton(onClick = {
                         windows.clear(); focusOrder.clear()
                     }, modifier = Modifier.size((42f * s).dp)) {
                         Icon(Icons.Filled.Cancel, contentDescription = "Close all apps", modifier = Modifier.size((18f * s).dp))
+                    }
+                    // Source #taskbar-exit-btn (fa-right-from-bracket,
+                    // onclick toggleDesktopMode()) — the LAST tray button.
+                    // v1.0.5: mirrors the header toggle's manual off-path
+                    // exactly: persist toolbox_desktop=false when it was
+                    // set, raise ToolboxApp's suppress-auto latch (so
+                    // landscape auto-desktop does not bounce straight
+                    // back in), and the source's exit toast.
+                    IconButton(onClick = {
+                        if (settings.desktopMode) {
+                            scope.launch { store.setSetting("toolbox_desktop", "false") }
+                        }
+                        onExitDesktop()
+                        toast(context, "Desktop layout disabled.")
+                    }, modifier = Modifier.size((42f * s).dp)) {
+                        Icon(Icons.Filled.ExitToApp, contentDescription = "Exit desktop mode", modifier = Modifier.size((18f * s).dp))
                     }
                 }
             }

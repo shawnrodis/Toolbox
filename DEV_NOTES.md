@@ -5,6 +5,33 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-22):** **v1.0.5** — versionCode 10, versionName `1.0.5`,
+  clean `gradlew clean assembleDebug` + `testDebugUnitTest` verified
+  (37 unit tests, 0 failures). Desktop Mode tray parity fix (Shawn
+  on-device find): the HTML taskbar tray ends with an Exit button
+  (`#taskbar-exit-btn`, fa-right-from-bracket, `toggleDesktopMode()`),
+  which the native tray lacked entirely — on a landscape-locked screen
+  there was no visible way out of Desktop Mode except the Settings
+  toggle. The native tray now matches the source order exactly — theme
+  segment (Light/Dark/Black) → clock → sound → fullscreen → Settings →
+  Close all → **Exit desktop mode** (LAST; Icons.Filled.ExitToApp,
+  42·s dp button / 18·s icon). Exit mirrors the header toggle's manual
+  off-path: persisted `toolbox_desktop=false` when set, ToolboxApp's
+  suppress-auto latch raised via a new `DesktopShell.onExitDesktop`
+  callback (no bounce-back into landscape auto-desktop), and the
+  source's "Desktop layout disabled." toast. The native-only tray
+  "Show desktop" button was removed: the source exposes `wmShowDesktop()`
+  only via the Start menu's first entry ("Desktop", "Return to the
+  desktop") and the first taskbar pin (Desktop/house), both routing
+  through `wmToggle('tab-home')` — the native port already had both
+  (Start-menu "Desktop" entry and Desktop house pin → `wmToggle("home")`),
+  so Show Desktop stays reachable in exactly the source's places.
+  Settings version-footer parity: native Settings now ends with
+  "Toolbox · Android Edition · Version 1.0.5" (small, muted, centred),
+  matching the web editions' footer; both HTML editions were restamped
+  1.0.4 → 1.0.5 in the same step (header comment, version meta tag,
+  Settings footer — 3 lines each, diff-verified), per the shared-version
+  alignment rule.
 - **Status (2026-10-22):** **v1.0.4** — versionCode 9, versionName `1.0.4`.
   Shopping items now sync: `toolbox_shop_items` was appended to SYNC_KEYS
   (26 keys) at the owner's direction on 2026-10-22, overriding the HTML

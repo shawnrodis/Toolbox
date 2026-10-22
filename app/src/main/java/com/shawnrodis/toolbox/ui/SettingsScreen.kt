@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -334,6 +335,16 @@ fun SettingsScreen(store: AppStore, onBack: () -> Unit) {
         SyncSettingsSection(store)
 
         ResetEverythingSection(store)
+
+        // v1.0.5: version footer parity with the web editions, which show
+        // "Toolbox · Web Edition · Version X" at the bottom of Settings.
+        Text(
+            "Toolbox · Android Edition · Version 1.0.5",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp)
+        )
     }
 }
 

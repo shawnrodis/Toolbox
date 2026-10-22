@@ -202,6 +202,11 @@ fun ToolboxApp(store: AppStore, settings: AppSettings) {
         DesktopShell(
             store = store,
             settings = settings,
+            // v1.0.5: the DesktopShell tray Exit button (source
+            // #taskbar-exit-btn) raises the same manual-off latch the
+            // header toggle sets, so leaving via the tray also wins over
+            // landscape auto-desktop until rotation / manual re-enable.
+            onExitDesktop = { suppressAuto = true },
             toolContent = { route, onCloseWindow ->
                 ToolWindowContent(store, route, onCloseWindow)
             }

@@ -12,8 +12,8 @@ android {
         applicationId = "com.shawnrodis.toolbox"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.0.4"
+        versionCode = 10
+        versionName = "1.0.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
