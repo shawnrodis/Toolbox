@@ -14,8 +14,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.FocusInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -53,13 +56,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -417,6 +426,22 @@ object ToolboxHaptics {
     @Volatile
     private var vibrator: Vibrator? = null
 
+    /**
+     * The platform vibrate call, isolated behind a replaceable seam so
+     * unit tests can count ticks without an Android runtime. Production
+     * code never reassigns this.
+     */
+    @Volatile
+    internal var performer: () -> Unit = {
+        try {
+            vibrator?.vibrate(
+                VibrationEffect.createOneShot(10, VibrationEffect.DEFAULT_AMPLITUDE)
+            )
+        } catch (e: Exception) {
+            // Haptics must never break the action they accompany.
+        }
+    }
+
     fun init(context: Context) {
         try {
             vibrator = context.getSystemService(Vibrator::class.java)
@@ -427,14 +452,17 @@ object ToolboxHaptics {
 
     fun tick() {
         if (!enabled) return
-        try {
-            vibrator?.vibrate(
-                VibrationEffect.createOneShot(10, VibrationEffect.DEFAULT_AMPLITUDE)
-            )
-        } catch (e: Exception) {
-            // Haptics must never break the action they accompany.
-        }
+        performer()
     }
+
+    /**
+     * v1.2.1 — the long-press counterpart of [tick]: every long-press
+     * trigger in the app (home-tile pin toggle, desktop-icon context
+     * menu, desktop blank-space menu, the Home FAB's quick switcher)
+     * fires this BEFORE its action, gated by the same toolbox_haptics
+     * toggle. Shawn: "it should occur when anything is long pressed."
+     */
+    fun longPressTick() = tick()
 }
 
 fun toolboxBeep(soundOn: Boolean, freq: Int, durMs: Int, type: String = "sine", vol: Double = 0.12) {
@@ -448,6 +476,92 @@ fun toolboxBeep(soundOn: Boolean, freq: Int, durMs: Int, type: String = "sine", 
 /** Legacy Phase 1 helper, now routed to the exact synth (740 high / 520 low). */
 fun beep(soundOn: Boolean, high: Boolean = true) {
     toolboxBeep(soundOn, if (high) 740 else 520, 70)
+}
+
+/**
+ * v1.2.1 — the source's slim range-input look as a custom slider: a
+ * thin rounded track (neutral), the filled portion and a small round
+ * thumb in the accent colour — mirroring the HTML's
+ * `input[type=range]` (Settings: `h-2` track + 20px thumb; Desktop
+ * taskbar: the plain accent-colour range at the wm scale). The stock
+ * Material slider's fat pill track and oversized thumb matched
+ * neither place (Shawn, on the Desktop taskbar's UI-scale slider:
+ * "Slider could use a touch up"). Tap or drag anywhere on the track;
+ * the thumb travels inset by its radius, like a real range input.
+ * Stepping stays the caller's job (both call sites snap to 5 before
+ * writing toolbox_ui_scale, exactly as they did with the stock
+ * slider), so the two controls can never drift apart.
+ */
+@Composable
+fun SlimSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    modifier: Modifier = Modifier,
+    trackHeight: Dp = 4.dp,
+    thumbDiameter: Dp = 12.dp,
+    accent: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+) {
+    var widthPx by remember { mutableFloatStateOf(0f) }
+    val span = valueRange.endInclusive - valueRange.start
+    val fraction = if (span > 0f) {
+        ((value - valueRange.start) / span).coerceIn(0f, 1f)
+    } else 0f
+    val hitHeight = maxOf(thumbDiameter, trackHeight) + 8.dp
+    Box(
+        modifier = modifier
+            .height(hitHeight)
+            .onSizeChanged { widthPx = it.width.toFloat() }
+            .pointerInput(valueRange) {
+                val rPx = thumbDiameter.toPx() / 2f
+                fun update(x: Float) {
+                    val travel = widthPx - 2f * rPx
+                    if (travel <= 0f) return
+                    val f = ((x - rPx) / travel).coerceIn(0f, 1f)
+                    onValueChange(valueRange.start + f * span)
+                }
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    update(down.position.x)
+                    down.consume()
+                    do {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull()
+                        if (change != null && change.pressed) {
+                            update(change.position.x)
+                            change.consume()
+                        }
+                    } while (event.changes.any { it.pressed })
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.fillMaxWidth().height(maxOf(thumbDiameter, trackHeight))) {
+            val trackH = trackHeight.toPx()
+            val r = thumbDiameter.toPx() / 2f
+            val cy = size.height / 2f
+            val x0 = r
+            val x1 = size.width - r
+            val tx = x0 + fraction * (x1 - x0)
+            val corner = CornerRadius(trackH / 2f, trackH / 2f)
+            drawRoundRect(
+                color = trackColor,
+                topLeft = Offset(x0, cy - trackH / 2f),
+                size = Size(x1 - x0, trackH),
+                cornerRadius = corner
+            )
+            if (tx > x0) {
+                drawRoundRect(
+                    color = accent,
+                    topLeft = Offset(x0, cy - trackH / 2f),
+                    size = Size(tx - x0, trackH),
+                    cornerRadius = corner
+                )
+            }
+            drawCircle(color = accent, radius = r, center = Offset(tx, cy))
+        }
+    }
 }
 
 /** Source formatting: `$${value.toFixed(2)}` in US locale. */

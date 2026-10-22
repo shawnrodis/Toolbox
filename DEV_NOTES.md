@@ -5,6 +5,61 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-22):** **v1.2.1** — versionCode 16, versionName `1.2.1`.
+  Fix/polish build (GitHub editions only):
+  - **Long-press haptics (both editions):** the v1.1.0 haptics
+    (device-local `toolbox_haptics`, default ON) previously fired
+    only from the beep hook. Now every long press answers back
+    (Shawn: "it should occur when anything is long pressed").
+    Android: `ToolboxHaptics.longPressTick()` (same toggle gate as
+    `tick()`; the platform vibrate call sits behind an internal
+    `performer` seam for tests) fires before the action at EVERY
+    long-press trigger — home tiles in all three home styles (pin
+    toggle, via the List card + the shared HomeTile), desktop icons
+    (context menu), the desktop blank-space menu, and the Home FAB
+    (quick switcher). No new long-press behaviours were invented;
+    the tools have none. Web: ONE global pointer detector ("Toolbox
+    Long-Press Haptics" block) — 550 ms hold (the file's own
+    long-press threshold), 12 px move slop, primary button only —
+    firing one guarded `navigator.vibrate(10)` gated by
+    `toolboxHapticsOn()`; `toolboxHaptic()` now stamps
+    `window.__tbLastVibrateAt` so a long-press tick within 150 ms
+    of a beep buzz is dropped instead of double-buzzing.
+  - **"Shawn Rodis" moved to the Settings footer (both editions):**
+    the home header no longer shows the name (web: switchTab hides
+    `#header-subtitle-text` on `tab-home`; Android: home passes an
+    empty subtitle and GlobalHeader renders no line). Tool views
+    keep "Toolbox Utility". The Settings footers now read
+    "Toolbox · Web Edition · Version 1.2.1 · by Shawn Rodis" /
+    "Toolbox · Android Edition · Version 1.2.1 · by Shawn Rodis".
+    Other occurrences (web <title>, the Settings-page brand header
+    in both editions) deliberately unchanged.
+  - **Web footer relocation (done by the preceding build, verified
+    here):** the web version footer now sits as the last element
+    inside `#tab-settings` instead of leaking under every tab —
+    exactly one occurrence, Settings only.
+  - **Desktop taskbar UI-scale slider touch-up (Android):** the
+    stock Material slider (fat pill, oversized thumb, unscaled)
+    crammed into the ~30dp scaled taskbar is replaced by a custom
+    slim slider in the source's proportions — everything × the wm
+    scale s: 110·s dp wide (64·s and the % label hidden when the
+    screen is < 700 dp wide, the source's media rule), 3.5·s track,
+    12·s accent thumb, % label 11·s bold accent min-width 38·s —
+    writing `toolbox_ui_scale` through the same store path as the
+    Settings slider (step 5, 25–150), so they stay in sync. The
+    shared `SlimSlider` composable also replaces the Settings
+    page's stock slider (8 dp track, 20 dp thumb — the source's
+    `h-2` + 20px thumb), which Workstream D had only recoloured.
+    Reset button/behaviour (100% + toast) unchanged.
+  - **Tests:** `V121LongPressHapticsTest` (3 JVM tests: the helper
+    fires per call when enabled, stays silent when the toggle is
+    off, and shares its gate with `tick()`), plus
+    `web/test/long-press-haptics.test.mjs` (16 node checks against
+    the real extracted detector: threshold, toggle gating, cancel
+    paths, slop, non-primary buttons, de-dupe). Existing web
+    harnesses still pass; all 9 inline web scripts parse.
+  - **Version alignment:** versionCode 16 / versionName 1.2.1;
+    Settings footers and the web edition's 3 stamps at 1.2.1.
 - **Status (2026-10-22):** **v1.2.0** — versionCode 15, versionName `1.2.0`.
   Feature build (GitHub editions only): an in-app **update checker**
   for both editions plus one-tap install on Android.

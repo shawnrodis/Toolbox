@@ -279,7 +279,11 @@ private fun ListHome(
                     .fillMaxWidth()
                     .combinedClickable(
                         onClick = { onOpen(tool.route) },
-                        onLongClick = { onLongPress(tool) }
+                        onLongClick = {
+                            // v1.2.1: long-press haptic (pin toggle).
+                            ToolboxHaptics.longPressTick()
+                            onLongPress(tool)
+                        }
                     )
             ) {
                 Row(
@@ -324,7 +328,15 @@ fun HomeTile(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    // v1.2.1: long-press haptic (pin toggle; the Quick
+                    // Switcher passes a no-op action and just ticks).
+                    ToolboxHaptics.longPressTick()
+                    onLongClick()
+                }
+            )
             .padding(8.dp)
     ) {
         Box {

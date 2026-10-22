@@ -41,8 +41,10 @@ import androidx.compose.ui.unit.sp
  *
  * Left: brand block (click = switchTab('tab-home')) — accent rounded
  * square with a white fa-toolbox glyph, then the DYNAMIC title/subtitle
- * from switchTab(): home -> "Toolbox" / "Shawn Rodis"; any other tab
- * (including Settings) -> the tool's registry name / "Toolbox Utility".
+ * from switchTab(): home -> "Toolbox" with NO subtitle line (v1.2.1 —
+ * "Shawn Rodis" moved to the Settings footer as "by Shawn Rodis"; an
+ * empty subtitle renders no line); any other tab (including Settings)
+ * -> the tool's registry name / "Toolbox Utility".
  *
  * Right: four rounded-xl bordered buttons (bg slate-100 light /
  * zinc-900 dark, border slate-200/zinc-800) in the source's exact order:
@@ -105,12 +107,15 @@ fun GlobalHeader(
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1
                     )
-                    Text(
-                        subtitle,
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
+                    // v1.2.1: empty subtitle (the home view) = no line.
+                    if (subtitle.isNotEmpty()) {
+                        Text(
+                            subtitle,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {

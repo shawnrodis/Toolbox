@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Toolbox (Shawn Rodis) — Web Edition v1.2.0 -->
+<!-- Toolbox (Shawn Rodis) — Web Edition v1.2.1 -->
 <html lang="en" id="html-root" class="h-full w-full dark black selection:bg-indigo-500 selection:text-white overflow-x-hidden" data-accent="indigo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Toolbox (Shawn Rodis)</title>
-    <meta name="version" content="1.2.0">
+    <meta name="version" content="1.2.1">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -711,7 +711,7 @@
                 </div>
                 <div>
                     <h1 id="header-title-text" class="font-extrabold text-sm text-slate-900 dark:text-white tracking-tight leading-tight">Toolbox</h1>
-                    <p id="header-subtitle-text" class="text-[10px] text-slate-500 dark:text-zinc-400 font-medium leading-none">Shawn Rodis</p>
+                    <p id="header-subtitle-text" class="text-[10px] text-slate-500 dark:text-zinc-400 font-medium leading-none" style="display:none"></p>
                 </div>
             </div>
 
@@ -1709,7 +1709,7 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-xs text-slate-900 dark:text-white">App Updates</h3>
-                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.2.0</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
+                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.2.1</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
@@ -1721,9 +1721,9 @@
                     </div>
                 </div>
             </div>
+            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.2.1 · by Shawn Rodis</div>
         </section>
 
-                <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.2.0</div>
 <section id="tab-skytrack" class="tab-content space-y-4 hidden relative">
 
             <div class="sky-header border-b px-3 py-3 rounded-2xl flex items-center justify-between">
@@ -2836,14 +2836,17 @@
             if (tabId === 'tab-home') {
                 if (homeFab) homeFab.classList.remove('show');
                 if (titleText) titleText.textContent = 'Toolbox';
-                if (subText) subText.textContent = 'Shawn Rodis';
+                // v1.2.1: no subtitle on Home — "Shawn Rodis" moved to
+                // the Settings footer ("… · by Shawn Rodis"); the
+                // element is hidden, not just emptied.
+                if (subText) { subText.textContent = ''; subText.style.display = 'none'; }
                 renderHomescreenGrid();
             } else {
                 if (homeFab) homeFab.classList.add('show');
                 const tool = toolsConfig.find(t => t.id === tabId);
                 if (tool) {
                     if (titleText) titleText.textContent = tool.name;
-                    if (subText) subText.textContent = 'Toolbox Utility';
+                    if (subText) { subText.style.display = ''; subText.textContent = 'Toolbox Utility'; }
                 }
             }
 
@@ -4789,7 +4792,12 @@
         }
         function toolboxHaptic() {
             try {
-                if (toolboxHapticsOn() && navigator.vibrate) navigator.vibrate(10);
+                if (toolboxHapticsOn() && navigator.vibrate) {
+                    navigator.vibrate(10);
+                    // v1.2.1: stamp for the long-press detector's
+                    // de-dupe (see Toolbox Long-Press Haptics below).
+                    window.__tbLastVibrateAt = Date.now();
+                }
             } catch (e) {}
         }
         function toggleToolboxHaptics() {
@@ -4823,6 +4831,48 @@
                 o.stop(ctx.currentTime + (durMs / 1000));
             } catch (e) {}
         }
+        /* ============ Toolbox Long-Press Haptics : BEGIN ============ */
+        // v1.2.1 — ONE global long-press detector for the whole app:
+        // holding anything down for the file's own long-press
+        // threshold (550 ms — the same one the home FAB, home tiles
+        // and desktop icons use) fires ONE 10 ms tick, gated by the
+        // same toolbox_haptics toggle as the beep hook. Cancelled by
+        // lifting, by pointercancel, or by moving past the handlers'
+        // own 12 px slop — so scrolling and Desktop Mode window
+        // drags never buzz mid-move. Non-primary buttons are skipped
+        // (right-click is the desktop context-menu path).
+        // De-dupe: toolboxHaptic() stamps window.__tbLastVibrateAt
+        // whenever the beep hook buzzes, and a long-press tick
+        // landing within 150 ms of a stamp is dropped, so a press
+        // whose own action also beeps doesn't double-buzz.
+        (function initLongPressHaptics() {
+            const LP_MS = 550, SLOP_PX = 12, DEDUPE_MS = 150;
+            let lpTimer = null, lpX = 0, lpY = 0;
+            const cancel = () => {
+                if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+            };
+            document.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0 || e.isPrimary === false) return;
+                cancel();
+                lpX = e.clientX; lpY = e.clientY;
+                lpTimer = setTimeout(() => {
+                    lpTimer = null;
+                    try {
+                        if (!toolboxHapticsOn() || !navigator.vibrate) return;
+                        const now = Date.now();
+                        if (now - (window.__tbLastVibrateAt || 0) < DEDUPE_MS) return;
+                        window.__tbLastVibrateAt = now;
+                        navigator.vibrate(10);
+                    } catch (err) {}
+                }, LP_MS);
+            }, true);
+            document.addEventListener('pointermove', (e) => {
+                if (lpTimer && Math.hypot(e.clientX - lpX, e.clientY - lpY) > SLOP_PX) cancel();
+            }, true);
+            document.addEventListener('pointerup', cancel, true);
+            document.addEventListener('pointercancel', cancel, true);
+        })();
+        /* ============ Toolbox Long-Press Haptics : END ============ */
         function toggleToolboxSound() {
             const on = !toolboxSoundOn();
             try {

@@ -233,11 +233,14 @@ fun ToolboxApp(store: AppStore, settings: AppSettings) {
     val scope = rememberCoroutineScope()
     val pinsJson by store.stringState("toolbox_taskbar_pins", "[]").collectAsState(initial = "[]")
     // v1.0.1 (defect #2 amendment): the global header title is DYNAMIC —
-    // switchTab() sets it per tab: home -> "Toolbox" / "Shawn Rodis";
-    // any other tab (Settings included) -> registry name / "Toolbox Utility".
+    // switchTab() sets it per tab. v1.2.1 (Shawn's request): the home
+    // subtitle ("Shawn Rodis") is gone — the name now lives only in the
+    // Settings footer ("… · by Shawn Rodis") — so home passes an empty
+    // subtitle and GlobalHeader renders no subtitle line; any other tab
+    // (Settings included) -> registry name / "Toolbox Utility".
     val onHome = currentRoute == null || currentRoute == Routes.HOME
     val headerTitle = if (onHome) "Toolbox" else toolByRoute(currentRoute!!)?.name ?: "Toolbox"
-    val headerSubtitle = if (onHome) "Shawn Rodis" else "Toolbox Utility"
+    val headerSubtitle = if (onHome) "" else "Toolbox Utility"
 
     Column(
         modifier = Modifier
@@ -307,7 +310,11 @@ fun ToolboxApp(store: AppStore, settings: AppSettings) {
                             onClick = {
                                 navController.popBackStack(Routes.HOME, inclusive = false)
                             },
-                            onLongClick = { quickSwitcherOpen = true }
+                            onLongClick = {
+                                // v1.2.1: long-press haptic (quick switcher).
+                                ToolboxHaptics.longPressTick()
+                                quickSwitcherOpen = true
+                            }
                         ),
                     contentAlignment = Alignment.Center
                 ) {

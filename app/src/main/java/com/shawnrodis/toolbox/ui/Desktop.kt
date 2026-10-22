@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -54,7 +55,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -507,7 +507,11 @@ fun DesktopShell(
                         // Start menu (document click handler).
                         detectTapGestures(
                             onTap = { startOpen = false },
-                            onLongPress = { desktopCtxOpen = true }
+                            onLongPress = {
+                                // v1.2.1: long-press haptic (desktop menu).
+                                ToolboxHaptics.longPressTick()
+                                desktopCtxOpen = true
+                            }
                         )
                     }
             ) {
@@ -696,18 +700,41 @@ fun DesktopShell(
                 modifier = Modifier.fillMaxWidth().height((WM_TASKBAR_BASE * s).dp).padding(horizontal = (10f * s).dp)
             ) {
                 // Left: UI scale (source taskbar-left, wm-ui-scale-slider).
-                Icon(Icons.Filled.Search, contentDescription = "UI scale", modifier = Modifier.size((14f * s).dp))
-                Slider(
+                // v1.2.1: the stock Material slider rendered as a fat pill
+                // with an oversized thumb in the scaled taskbar; the source
+                // is a slim range input (110*s wide, thin track, small
+                // accent thumb). SlimSlider draws exactly that, still
+                // writing toolbox_ui_scale through the same store path as
+                // the Settings slider. The source's <=700px media rule
+                // (64*s slider, % label hidden) maps to the screen width.
+                val scaleNarrow = config.screenWidthDp < 700
+                Icon(
+                    Icons.Filled.Search, contentDescription = "UI scale",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size((13f * s).dp)
+                )
+                SlimSlider(
                     value = settings.uiScale.toFloat(),
                     onValueChange = { v ->
                         val stepped = (v / 5f).roundToInt() * 5
                         scope.launch { store.setSetting("toolbox_ui_scale", stepped.toString()) }
                     },
                     valueRange = 25f..150f,
-                    steps = 24,
-                    modifier = Modifier.width((76f * s).dp)
+                    trackHeight = (3.5f * s).dp,
+                    thumbDiameter = (12f * s).dp,
+                    accent = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.width(((if (scaleNarrow) 64f else 110f) * s).dp)
                 )
-                Text("${settings.uiScale}%", fontSize = (11f * s).sp)
+                if (!scaleNarrow) {
+                    Text(
+                        "${settings.uiScale}%",
+                        fontSize = (11f * s).sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.widthIn(min = (38f * s).dp)
+                    )
+                }
                 IconButton(onClick = {
                     scope.launch { store.setSetting("toolbox_ui_scale", "100") }
                     toast(context, "UI scale reset to 100%.")
@@ -892,7 +919,14 @@ private fun DesktopTile(tool: ToolEntry, s: Float, onTap: () -> Unit, onLongPres
             .width((108f * s).dp)
             .height((100f * s).dp)
             .clip(RoundedCornerShape((10f * s).dp))
-            .combinedClickable(onClick = onTap, onLongClick = onLongPress)
+            .combinedClickable(
+                onClick = onTap,
+                onLongClick = {
+                    // v1.2.1: long-press haptic (icon context menu).
+                    ToolboxHaptics.longPressTick()
+                    onLongPress()
+                }
+            )
             .padding(top = (6f * s).dp)
     ) {
         ToolIconBox(

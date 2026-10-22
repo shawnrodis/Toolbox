@@ -41,8 +41,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -578,19 +576,21 @@ fun SettingsScreen(store: AppStore, onBack: () -> Unit) {
                             .padding(5.dp)
                     )
                 }
-                Slider(
+                // v1.2.1: SlimSlider replaces the stock Material slider —
+                // Workstream D coloured it but kept the fat M3 track/thumb;
+                // the source is an 8px rounded track with a 20px accent
+                // thumb. Same store path + stepping as before.
+                SlimSlider(
                     value = settings.uiScale.toFloat(),
                     onValueChange = { v ->
                         val stepped = (v / 5f).toInt() * 5
                         scope.launch { store.setSetting("toolbox_ui_scale", stepped.toString()) }
                     },
                     valueRange = 25f..150f,
-                    steps = 24,
-                    colors = SliderDefaults.colors(
-                        thumbColor = accent,
-                        activeTrackColor = accent,
-                        inactiveTrackColor = palette.iconBox
-                    ),
+                    trackHeight = 8.dp,
+                    thumbDiameter = 20.dp,
+                    accent = accent,
+                    trackColor = palette.iconBox,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -755,8 +755,9 @@ fun SettingsScreen(store: AppStore, onBack: () -> Unit) {
         }
 
         // v1.0.5: version footer parity with the web editions.
+        // v1.2.1: "by Shawn Rodis" moved here from the home header.
         Text(
-            "Toolbox · Android Edition · Version 1.2.0",
+            "Toolbox · Android Edition · Version 1.2.1 · by Shawn Rodis",
             fontSize = 11.sp,
             color = palette.subtle,
             textAlign = TextAlign.Center,
