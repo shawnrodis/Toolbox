@@ -113,15 +113,42 @@ class SyncManager(private val appContext: Context, private val store: AppStore) 
 
     // ---- dirty tracking (source: localStorage wrapper -> syncMarkDirty) --
 
-    /** Source syncMarkDirty(): record pending + schedule a debounced push. */
+    /**
+     * Source syncMarkDirty(): record pending + schedule a debounced push.
+     *
+     * v1.1.1: the pending mark is recorded whether or not sync is
+     * currently configured. Until now a change made while unconfigured
+     * (keys typed before enabling sync / signing in, or a deletion made
+     * while signed out) was silently dropped here, and — if the key had
+     * a meta entry — the device then believed itself in sync while the
+     * backend kept the old value forever. Pending simply means "not yet
+     * confirmed by the backend"; the debounced push below still only
+     * fires when configured.
+     */
     fun markDirty(key: String) {
         scope.launch {
-            if (!configured()) return@launch
             val pending = parseSyncPending(store.stringState(SYNC_PENDING_KEY, "").first())
             pending[key] = 1
             store.setStringState(SYNC_PENDING_KEY, syncPendingToJson(pending))
             schedulePush()
         }
+    }
+
+    /**
+     * v1.1.1: the pending map for a push/pull, topped up by
+     * [seedPending] so values that predate sync bookkeeping (entered
+     * before sync was enabled / signed in, or stranded by a settings
+     * save wiping meta + pending) are treated as unsynced local changes.
+     * Persisted when seeding added anything.
+     */
+    private suspend fun seededPending(): MutableMap<String, Int> {
+        val pending = parseSyncPending(store.stringState(SYNC_PENDING_KEY, "").first())
+        val meta = parseSyncMeta(store.stringState(SYNC_META_KEY, "").first())
+        val seeded = seedPending(meta, pending, store.snapshot(SYNC_KEYS))
+        if (seeded != pending) {
+            store.setStringState(SYNC_PENDING_KEY, syncPendingToJson(seeded))
+        }
+        return seeded.toMutableMap()
     }
 
     /** Source syncSchedulePush(): push after 2.5s of quiet. */
@@ -161,7 +188,7 @@ class SyncManager(private val appContext: Context, private val store: AppStore) 
         val tok = token()
         val baseUrl = url()
         if (!syncConfigured(baseUrl, tok)) return@withContext OpResult(false, error = "not-configured")
-        val pending = parseSyncPending(store.stringState(SYNC_PENDING_KEY, "").first())
+        val pending = seededPending()
         val payload = assemblePush(tok, pending, store.snapshot(SYNC_KEYS))
         if (payload.keys.isEmpty()) return@withContext OpResult(true, applied = 0)
         try {
@@ -195,7 +222,7 @@ class SyncManager(private val appContext: Context, private val store: AppStore) 
         val tok = token()
         val baseUrl = url()
         if (!syncConfigured(baseUrl, tok)) return@withContext OpResult(false, error = "not-configured")
-        val pending = parseSyncPending(store.stringState(SYNC_PENDING_KEY, "").first())
+        val pending = seededPending()
         try {
             val conn = openConnection("GET", baseUrl, tok)
             if (conn.responseCode !in 200..299) throw IOException("HTTP ${conn.responseCode}")
@@ -374,7 +401,7 @@ class SyncManager(private val appContext: Context, private val store: AppStore) 
         if (store.stringState(FB_REFRESH_KEY, "").first().isEmpty()) {
             return@withContext OpResult(false, error = "not-configured")
         }
-        val pending = parseSyncPending(store.stringState(SYNC_PENDING_KEY, "").first())
+        val pending = seededPending()
         val payload = assemblePush("", pending, store.snapshot(SYNC_KEYS))
         if (payload.keys.isEmpty()) return@withContext OpResult(true, applied = 0)
         try {
@@ -408,7 +435,7 @@ class SyncManager(private val appContext: Context, private val store: AppStore) 
         if (store.stringState(FB_REFRESH_KEY, "").first().isEmpty()) {
             return@withContext OpResult(false, error = "not-configured")
         }
-        val pending = parseSyncPending(store.stringState(SYNC_PENDING_KEY, "").first())
+        val pending = seededPending()
         try {
             val text = fbDataRequest(cfg, "GET", null)
             val serverState =

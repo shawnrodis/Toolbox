@@ -12,6 +12,13 @@ account, protected by rules that only let your signed-in account
 read or write it. Nobody else's Toolbox can see it, and the app
 developer can't either.
 
+That includes the API keys you type into Settings (Aviationstack and
+the two Gemini keys): with sync on, a key entered on one device is
+stored in your project and appears on your other signed-in devices —
+that's what lets you enter a key once and have it everywhere. Keys
+you entered *before* turning sync on are uploaded on the first sync
+too, and clearing a key on one device clears it on the others.
+
 The free **Spark** plan is more than enough — Toolbox sync is a few
 kilobytes of settings, nowhere near the free limits.
 

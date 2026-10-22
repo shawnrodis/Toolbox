@@ -705,7 +705,7 @@ fun SettingsScreen(store: AppStore, onBack: () -> Unit) {
                     SettingsField(
                         palette,
                         value = settings.aviationstackKey,
-                        onValueChange = { v -> scope.launch { store.setSetting("toolbox_aviationstack_key", v) } },
+                        onValueChange = { v -> scope.launch { store.setApiKey("toolbox_aviationstack_key", v) } },
                         placeholder = "Paste your own Aviationstack key",
                         password = true, mono = true, showToggle = true,
                         modifier = Modifier.fillMaxWidth()
@@ -717,7 +717,7 @@ fun SettingsScreen(store: AppStore, onBack: () -> Unit) {
                     SettingsField(
                         palette,
                         value = settings.geminiKey1,
-                        onValueChange = { v -> scope.launch { store.setSetting("toolbox_gemini_key_1", v) } },
+                        onValueChange = { v -> scope.launch { store.setApiKey("toolbox_gemini_key_1", v) } },
                         placeholder = "Paste your own Gemini key 1",
                         password = true, mono = true, showToggle = true,
                         modifier = Modifier.fillMaxWidth()
@@ -728,7 +728,7 @@ fun SettingsScreen(store: AppStore, onBack: () -> Unit) {
                     SettingsField(
                         palette,
                         value = settings.geminiKey2,
-                        onValueChange = { v -> scope.launch { store.setSetting("toolbox_gemini_key_2", v) } },
+                        onValueChange = { v -> scope.launch { store.setApiKey("toolbox_gemini_key_2", v) } },
                         placeholder = "Paste your own Gemini key 2",
                         password = true, mono = true, showToggle = true,
                         modifier = Modifier.fillMaxWidth()
@@ -746,7 +746,7 @@ fun SettingsScreen(store: AppStore, onBack: () -> Unit) {
 
         // v1.0.5: version footer parity with the web editions.
         Text(
-            "Toolbox · Android Edition · Version 1.1.0",
+            "Toolbox · Android Edition · Version 1.1.1",
             fontSize = 11.sp,
             color = palette.subtle,
             textAlign = TextAlign.Center,

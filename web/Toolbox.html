@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Toolbox (Shawn Rodis) — Web Edition v1.1.0 -->
+<!-- Toolbox (Shawn Rodis) — Web Edition v1.1.1 -->
 <html lang="en" id="html-root" class="h-full w-full dark black selection:bg-indigo-500 selection:text-white overflow-x-hidden" data-accent="indigo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Toolbox (Shawn Rodis)</title>
-    <meta name="version" content="1.1.0">
+    <meta name="version" content="1.1.1">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -1692,7 +1692,7 @@
             </div>
         </section>
 
-                <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.1.0</div>
+                <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.1.1</div>
 <section id="tab-skytrack" class="tab-content space-y-4 hidden relative">
 
             <div class="sky-header border-b px-3 py-3 rounded-2xl flex items-center justify-between">
@@ -3457,13 +3457,42 @@
             if (had && SYNC_KEYS.includes(k)) syncMarkDirty(k);
         };
         function syncMarkDirty(key) {
-            if (!syncConfigured()) return;
+            // v1.1.1: the pending mark is recorded whether or not sync is
+            // currently configured. It used to be dropped when
+            // unconfigured, so a change made before enabling sync / signing
+            // in (or a deletion made while signed out) was silently lost —
+            // and if the key had a meta entry the device then believed
+            // itself in sync while the backend kept the old value forever.
+            // Pending simply means "not yet confirmed by the backend"; the
+            // debounced push still only fires when configured.
             try {
                 const p = syncReadPending();
                 p[key] = 1;
                 _lsSetItem(SYNC_PENDING_KEY, JSON.stringify(p));
             } catch (e) { /* storage unavailable */ }
             syncSchedulePush();
+        }
+
+        // v1.1.1 — first-sync seeding (mirrors the Android seedPending):
+        // values that already existed locally BEFORE sync bookkeeping
+        // began (keys typed before sync was enabled, before sign-in, or
+        // stranded by a settings save wiping meta + pending for a fresh
+        // backend) are unsynced local changes too. Any SYNC_KEYS entry
+        // with a local value, NO meta entry, and no pending mark joins
+        // the pending map, so the first push after enabling carries it.
+        // Keys WITH meta are never seeded (a locally-absent one is a
+        // pull deletion, not a push). Called at the top of every
+        // push/pull, so it is a no-op in steady state.
+        function syncSeedPending() {
+            try {
+                const p = syncReadPending();
+                let changed = false;
+                for (const k of SYNC_KEYS) {
+                    if (!p[k] && !syncMeta[k] && localStorage.getItem(k) !== null) { p[k] = 1; changed = true; }
+                }
+                if (changed) _lsSetItem(SYNC_PENDING_KEY, JSON.stringify(p));
+            } catch (e) { /* storage unavailable */ }
+            return syncReadPending();
         }
         function syncSchedulePush() {
             if (!syncConfigured()) return;
@@ -3475,7 +3504,7 @@
         async function syncPushNow() {
             if (!syncConfigured()) return { ok: false, reason: 'not-configured' };
             if (syncProvider() === 'firebase') return fbPushNow();
-            const pending = syncReadPending();
+            const pending = syncSeedPending();
             const keys = Object.keys(pending).filter(k => SYNC_KEYS.includes(k));
             if (!keys.length) return { ok: true, applied: 0 };
             const updates = {}, deleted = [];
@@ -3533,7 +3562,7 @@
         async function syncPullNow() {
             if (!syncConfigured()) return { ok: false, reason: 'not-configured' };
             if (syncProvider() === 'firebase') return fbPullNow();
-            const pending = syncReadPending();
+            const pending = syncSeedPending();
             try {
                 const res = await fetch(syncEndpoint(), { headers: syncAuthHeaders() });
                 if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -3756,7 +3785,7 @@
 
         async function fbPushNow() {
             if (!fbConfigured()) return { ok: false, reason: 'not-configured' };
-            const pending = syncReadPending();
+            const pending = syncSeedPending();
             const keys = Object.keys(pending).filter(k => SYNC_KEYS.includes(k));
             if (!keys.length) return { ok: true, applied: 0 };
             const stamp = new Date().toISOString();
@@ -3788,7 +3817,7 @@
 
         async function fbPullNow() {
             if (!fbConfigured()) return { ok: false, reason: 'not-configured' };
-            const pending = syncReadPending();
+            const pending = syncSeedPending();
             try {
                 const res = await fbDataRequest('GET', null);
                 const serverState = (await res.json()) || {};

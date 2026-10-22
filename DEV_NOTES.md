@@ -5,6 +5,57 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-22):** **v1.1.1** — versionCode 14, versionName `1.1.1`.
+  Fix build (GitHub editions only — the personal web edition was
+  retired earlier today): guarantee the user-entered API keys
+  (`toolbox_aviationstack_key`, `toolbox_gemini_key_1`,
+  `toolbox_gemini_key_2` — already in SYNC_KEYS) actually reach every
+  synced device, both providers, both editions. Audit findings:
+  - **First-sync gap (both editions, both providers) — fixed.**
+    Pending only ever recorded changes made WHILE sync was configured
+    (`SyncManager.markDirty` / web `syncMarkDirty` both gated on
+    configured), so values that existed before sync was enabled or
+    signed in never pushed: the first pull didn't skip them (not
+    pending) and an empty backend left them stranded. Fixes: the
+    configured-gate is gone from dirty tracking (pending now means
+    "not yet confirmed by the backend", which also makes changes and
+    deletions made while signed out propagate on the next sign-in),
+    and every push/pull first runs `seedPending` /
+    `syncSeedPending()` — any SYNC_KEYS entry with a local value, no
+    meta entry, and no pending mark is seeded as pending (keys WITH
+    meta are never seeded, so a locally-absent synced key stays a
+    pull deletion). Settings saves that wipe meta + pending (new
+    server, provider switch, new Firebase config) re-seed from local
+    state on the next tick, which is also the provider-migration
+    behaviour wanted.
+  - **Android clear/normalize divergence — fixed.** The web (source)
+    savers trim the key and REMOVE it when blank (a sync deletion);
+    the Android Settings fields stored the raw value per keystroke
+    and stored `""` on clear (an update, leaving the editions holding
+    different representations of "no key", and untrimmed keys syncing
+    verbatim). The three fields now save via `AppStore.setApiKey` /
+    `normalizeApiKeyValue`: trimmed, blank removes the key — chosen
+    semantics: **cleared = removed (deletion)**, matching the source.
+  - **Verified sound, unchanged:** push payload assembly and the
+    pull merge already covered the API keys identically in both
+    transports (server `deleted` list; Firebase PATCH nulls);
+    receiving devices use pulled keys without a reinstall (Android
+    tools read the reactive settings flow over the same DataStore
+    keys; the web pre-fills Settings fields from localStorage on load
+    and its resolvers read localStorage at call time, with a reload
+    after an applying tick); the Android dirty hook is installed once
+    at app start (`MainActivity` → `SyncManager.start()`).
+  - **Tests:** new `V111ApiKeySyncTest` (10 JVM tests: key list
+    membership, push payload + Firebase body carry entered keys, pull
+    applies keys on a fresh device, trim/blank-removal semantics,
+    clear → deletion → pull-delete round trip, seeding rules) and a
+    new node harness `web/test/sync-api-keys.test.mjs` (14 checks
+    driving the web edition's real sync functions through first-sync
+    seeding over BOTH transports, trim/clear/delete propagation).
+    FIREBASE_SYNC.md now states that the entered API keys sync into
+    the user's own project (SYNC_SERVER.md already said so).
+  - **Version alignment:** versionCode 14 / versionName 1.1.1;
+    Settings footers and the web edition's 3 stamps at 1.1.1.
 - **Status (2026-10-22):** **v1.1.0** — versionCode 13, versionName `1.1.0`.
   Feature release, four workstreams, all editions (Android + public
   web + Shawn's personal web copy):

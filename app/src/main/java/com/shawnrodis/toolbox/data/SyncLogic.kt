@@ -169,6 +169,38 @@ data class PullPlan(
 )
 
 /**
+ * v1.1.1 — first-sync seeding. The pending map only ever records changes
+ * made while the dirty-tracking hook was running, so values that already
+ * existed locally BEFORE sync bookkeeping began (keys typed before sync
+ * was enabled, before sign-in, or before a settings save wiped meta +
+ * pending for a fresh backend) would otherwise never be pushed: the
+ * first pull skips nothing (they are not pending) and either overwrites
+ * them with backend state or, on an empty backend, leaves them stranded
+ * on the device forever.
+ *
+ * Seeding treats every never-synced local value as what it is — an
+ * unsynced local change: any SYNC_KEYS entry that (a) has a local value,
+ * (b) has NO meta entry (this device has never confirmed it with the
+ * backend), and (c) is not already pending joins the pending map. Keys
+ * WITH a meta entry are never seeded (their divergence, if any, is a
+ * tracked change's job, and a locally-absent key with meta is a pull
+ * deletion waiting to happen — not a push). Runs at the top of every
+ * push/pull, so it is a no-op in steady state.
+ */
+fun seedPending(
+    meta: Map<String, String>,
+    pending: Map<String, Int>,
+    values: Map<String, String?>
+): Map<String, Int> {
+    if (SYNC_KEYS.all { it in meta || it in pending || values[it] == null }) return pending
+    val out = pending.toMutableMap()
+    for (k in SYNC_KEYS) {
+        if (k !in out && k !in meta && values[k] != null) out[k] = 1
+    }
+    return out
+}
+
+/**
  * Source syncPullNow() application maths (minus the fetch):
  * for each SYNC_KEYS entry — skip if locally pending; apply server value
  * when entry exists with a string value and (no meta || newer); delete

@@ -75,6 +75,18 @@ val RESET_KEYS_SYNC: List<String> = listOf(
  */
 fun hapticsOn(stored: String?): Boolean = stored != "off"
 
+/**
+ * v1.1.1 — the source's API-key save semantics (saveAviationstackKey /
+ * saveGeminiKeys in the HTML): the value is trimmed, and a blank result
+ * REMOVES the key (returns null) rather than storing an empty string.
+ * Removal matters for sync: a removed SYNC_KEYS entry pushes as a
+ * deletion, so clearing a key on one device clears it on every synced
+ * device — an "" update would leave the two editions holding different
+ * representations of "no key" (absent vs empty), and an untrimmed key
+ * would fail API calls that the web edition's trimmed reads tolerate.
+ */
+fun normalizeApiKeyValue(raw: String): String? = raw.trim().ifEmpty { null }
+
 class AppStore(private val context: Context) {
     private val ds: DataStore<Preferences> get() = context.toolboxDataStore
 
@@ -123,6 +135,18 @@ class AppStore(private val context: Context) {
         var old: String? = null
         ds.edit { p -> old = p[k]; p[k] = value }
         notifyIfSyncedKeyChanged(key, old, value)
+    }
+
+    /**
+     * v1.1.1: save an API-key field with the source's semantics —
+     * trimmed, and blank removes the key (a sync deletion), via
+     * [normalizeApiKeyValue]. Used by the three Settings API-key fields
+     * so a key entered or cleared here behaves exactly as in the web
+     * edition, including across sync.
+     */
+    suspend fun setApiKey(key: String, raw: String) {
+        val v = normalizeApiKeyValue(raw)
+        if (v == null) removeStringState(key) else setSetting(key, v)
     }
 
     suspend fun setSound(value: Boolean) {
