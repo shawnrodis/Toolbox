@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icon.png" alt="Toolbox app icon" width="120">
+</p>
+
 # Toolbox
 
 Toolbox is a personal utility suite that brings a collection of everyday tools together in one place: converters, trackers, calculators, document tools, a photo tool, and a customizable home screen with an optional Desktop Mode. It comes in two editions of the same app — a native Android app and a single-file web app — so the same Toolbox can be used on a phone or on a desktop or laptop computer.
