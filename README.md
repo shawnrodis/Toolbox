@@ -93,3 +93,9 @@ Development history and internal build notes live in [DEV_NOTES.md](DEV_NOTES.md
 - Toolbox has no hosted backend and no built-in sync address.
 - The only network calls Toolbox makes are to services implied by the features you use: currency-rate lookups, Aviationstack (with your key) for flight lookups, Google Gemini (with your key) for cloud OCR — and your own sync server, only if you set one up.
 - API keys you enter are not built into the app. Note that if you enable Sync, the synced settings include your saved API-key fields, sent only to the sync server address you entered — so run your sync server somewhere you trust, and protect it as described in [SYNC_SERVER.md](SYNC_SERVER.md).
+
+## License
+
+Copyright (C) 2026 Shawn Rodis
+
+Toolbox is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License v3.0** as published by the Free Software Foundation (see the [LICENSE](LICENSE) file in this repository). It is distributed in the hope that it will be useful, but **without any warranty**. Under the GPL, anyone who distributes a modified version of Toolbox must share their changes under the same license — so Toolbox and everything built on it stay open.
