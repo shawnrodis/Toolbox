@@ -8,6 +8,23 @@ Toolbox is a personal utility suite that brings a collection of everyday tools t
 
 The **web edition is a web app that can be used on Windows, Mac, and Linux**: it is one HTML file (`web/Toolbox.html`) that runs in any modern browser, with no install and no build step. It works opened directly from disk (`file://`) or hosted on any static web host. The **Android edition** is a true native app built with Kotlin and Jetpack Compose.
 
+## Screenshots
+
+<p align="center">
+  <img src="assets/screenshot-home.jpg" alt="Toolbox home screen on Android: the tool grid in the Black theme" width="300">
+  <br><em>The home screen (Android edition, Black theme) — every tool one tap away, pins on top.</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshot-desktop.jpg" alt="Toolbox Desktop Mode: tools as windows over a desktop with a taskbar" width="680">
+  <br><em>Desktop Mode — the same tools as windows, with a taskbar, on a wide screen.</em>
+</p>
+
+<p align="center">
+  <img src="assets/screenshot-settings.jpg" alt="Toolbox Settings: accent colour themes, home screen style, UI scale, theme, sounds and haptics" width="300">
+  <br><em>Settings — accent colours, home-screen styles, UI scale, themes, sounds & haptics, and optional sync.</em>
+</p>
+
 ## Tools
 
 | Tool | What it does |
