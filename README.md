@@ -40,11 +40,17 @@ The **web edition is a web app that can be used on Windows, Mac, and Linux**: it
 | Notes | Bullet-point notes, newest modified first. |
 | Flight Tracker | Track live flights with Aviationstack telemetry. |
 | SpongeBob Meme Generator | Convert text to aLtErNaTiNg SpOnGeBoB mEmE case. |
-| PDF Tools | Merge, split, rotate, convert, and OCR PDF documents. |
+| PDF Tools | Merge, split, rotate, convert, and OCR PDF documents (offline PaddleOCR, or Gemini cloud OCR with your key). |
 | Square Pic | Square any photo with a blur, color, or gradient fill, with lossless PNG export. |
 | Settings | Customize the theme and custom accent color, home-screen style, Desktop Mode, UI scale, sounds, API keys, and optional sync. |
 
 Most tools can share their results or export them as JPG or PDF from the buttons in the tool's header.
+
+## What's new in 1.3.0
+
+- **PDF Tools' local OCR engine is now PaddleOCR in both editions.** The "Local Engine" option in Make Searchable PDF used to be Tesseract.js in the web edition and ML Kit on Android — two different engines with two different ideas of your document. Both editions now run the same engine: **PaddleOCR (PP-OCRv6, tiny tier) over ONNX Runtime**, with the same model files on both sides. The Android app bundles the models (~6 MB) and runs them on-device; the web edition loads them in-browser on first use. Recognition is line-based, noticeably stronger than the old engines on ordinary documents, and still fully offline once the web edition has its models cached. The Gemini "AI Vision OCR" option is unchanged.
+- The selector is renamed to match: **Local Engine · PaddleOCR (Offline)**.
+- Under the hood on Android, ML Kit's text-recognition library is gone, replaced by ONNX Runtime (native libraries ship for arm64-v8a and armeabi-v7a only).
 
 ## Download and install
 
@@ -59,14 +65,14 @@ The Android app requires Android 8.0 (API 26) or newer.
 
 ### Web (Windows, Mac, and Linux)
 
-1. **Download [Toolbox_v1.2.2.html](https://github.com/shawnrodis/toolbox/releases/download/v1.2.2/Toolbox_v1.2.2.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
+1. **Download [Toolbox_v1.3.0.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.0/Toolbox_v1.3.0.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
 2. Open `Toolbox.html` in any modern browser — double-clicking the file works.
 
 That's all: the web app is a single self-contained HTML file with no install and no build step. It can also be placed on any static hosting service.
 
 ## Versioning
 
-The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.2.2.apk` and `Toolbox_v1.2.2.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
+The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.0.apk` and `Toolbox_v1.3.0.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
 
 ## Updates
 
@@ -91,7 +97,7 @@ Most of Toolbox works with no keys at all. Two features use a free third-party A
 2. Open Toolbox and go to **Settings → API Keys**.
 3. Paste the key into **Gemini API Key 1**. If you have a second key, add it under **Gemini API Key 2** — cloud OCR tries Key 1 first and automatically falls over to Key 2.
 
-PDF Tools' offline OCR needs **no key**: the Android edition uses on-device text recognition, and the web edition uses in-browser OCR. Your keys are kept in the app's local storage on your device (or in your browser's local storage for the web edition); they are never built into the app. If you choose to enable Sync, Toolbox can also carry your saved key settings to *your own* sync server — see the privacy notes below.
+PDF Tools' offline OCR needs **no key**: both editions run **PaddleOCR** (PP-OCRv6) entirely locally — the Android edition with the models bundled in the app over ONNX Runtime, the web edition in-browser over ONNX Runtime Web (its ~6 MB of models download once, on first OCR use, and are cached by the browser after that). Your keys are kept in the app's local storage on your device (or in your browser's local storage for the web edition); they are never built into the app. If you choose to enable Sync, Toolbox can also carry your saved key settings to *your own* sync server — see the privacy notes below.
 
 ## Sync across devices (optional)
 
@@ -124,6 +130,11 @@ Development history and internal build notes live in [DEV_NOTES.md](DEV_NOTES.md
 - Toolbox has no hosted backend and no built-in sync address.
 - The only network calls Toolbox makes are to services implied by the features you use: currency-rate lookups, Aviationstack (with your key) for flight lookups, Google Gemini (with your key) for cloud OCR — and your own sync backend (your server, or your Firebase project), only if you set one up.
 - API keys you enter are not built into the app. Note that if you enable Sync, the synced settings include your saved API-key fields, sent only to the sync backend you configured — so run your sync server somewhere you trust, and protect it as described in [SYNC_SERVER.md](SYNC_SERVER.md), or use your own Firebase project as described in [FIREBASE_SYNC.md](FIREBASE_SYNC.md).
+
+## Credits
+
+- **PaddleOCR** (PP-OCRv6 models) — Copyright (c) PaddlePaddle, Apache License 2.0. The ONNX conversions bundled with the Android app and loaded by the web edition come from the [ppu-paddle-ocr-models](https://github.com/PT-Perkasa-Pilar-Utama/ppu-paddle-ocr-models) repository; the web edition runs them through the MIT-licensed [ppu-paddle-ocr](https://www.npmjs.com/package/ppu-paddle-ocr) library, whose pipeline the Android port mirrors. See `app/src/main/assets/ocr/NOTICE` in this repository.
+- **ONNX Runtime** — Copyright (c) Microsoft Corporation, MIT License.
 
 ## License
 

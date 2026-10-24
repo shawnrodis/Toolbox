@@ -5,6 +5,93 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-24):** **v1.3.0** — versionCode 18, versionName `1.3.0`.
+  PDF Tools' LOCAL OCR engine is now true **PaddleOCR in BOTH editions**
+  (the Gemini "ai" engine is untouched, behaviour-identical):
+  - **One engine, same models, both platforms:** PP-OCRv6 **tiny** tier
+    from the ppu-paddle-ocr ecosystem — det `PP-OCRv6_tiny_det.onnx`
+    (1,780,590 B, sha256 193bab7a…), rec `PP-OCRv6_tiny_rec.onnx`
+    (4,462,639 B, sha256 9ef676d6…), dictionary `ppocrv6_tiny_dict.txt`
+    (27,157 B, 6,906 entries = the rec model's class count; total
+    ≈ 6.27 MB). Tier choice measured: v6 small is ≈ 31.1 MB and medium
+    ≈ 138.6 MB — far too heavy for an APK asset + a browser download
+    for the quality delta; tiny is also the package's own default.
+    Models are Apache-2.0 (PaddleOCR) — attribution in
+    `app/src/main/assets/ocr/NOTICE` + the README Credits section.
+  - **Web:** the Tesseract.js CDN script is GONE. The head now carries
+    an import map pinning `onnxruntime-web@1.26.0`
+    (`ort.all.bundle.min.mjs`) and `ppu-ocv@4.0.0` (canvas-web);
+    `loadPaddleOcrService()` lazily dynamic-imports
+    `ppu-paddle-ocr@6.6.1/web/index.js` on first OCR use, constructs
+    `PaddleOcrService` with the explicit portable `.onnx` model URLs
+    (Hugging Face `snowfluke/ppu-paddle-ocr-models` — the same bytes
+    the Android edition bundles), and caches the service across
+    pages/runs (a failed load resets the cache so the next run
+    retries). Every pinned URL was curl-verified (200). Results are
+    per-LINE now: a line's segments are joined with spaces and drawn
+    once, invisibly, at the union box with font size from the line
+    height — the shape the Android edition produces. Selector value
+    `tesseract` → `paddle`, button id `pdf-btn-ocr-paddle`, sub-label
+    "PaddleOCR (Offline)".
+  - **Android:** ML Kit text-recognition is REMOVED (dependency and
+    code path). New `tools/PaddleOcr.kt` is a faithful Kotlin port of
+    ppu-paddle-ocr 6.6.1's pipeline math — detection resize (auto
+    max-side rule) + ImageNet tensor, the package's CANVAS-NATIVE
+    postprocess (probability bytes > 0 → 8-connected components,
+    pixel-area ≥ 20, padding 0.4/0.6 of box HEIGHT instead of classic
+    DB unclip), per-line recognition strategy (flat crops, tall-crop
+    90° CCW rotation, merged multi-box line crops re-split by CTC
+    positions), rec tensor = R channel at height 48, (v/127.5) − 1,
+    CTC greedy decode with the dictionary (blank 0, last index =
+    space) + gap-space injection + fullwidth/double-space refinement,
+    and the 0.5 confidence gate (0.8 for symbol-only text). JS
+    Math.round semantics are preserved via `jsRound` (halves toward
+    +∞). `tools/PaddleOcrRuntime.kt` is the ONNX glue:
+    `com.microsoft.onnxruntime:onnxruntime-android:1.26.0` (pinned to
+    match the web's runtime version), sessions + dictionary built
+    once from `assets/ocr/`. The pipeline core is pure Kotlin over
+    IntArray pixels (no Android imports) with the models behind
+    interfaces, so it is fully JVM-testable. `OcrEngines`'
+    `recognizeWordsLocal`/`recognizeTextLocal` now take a Context and
+    emit LINE-level `OcrWord`s; `PdfEngine.addWordLayer` consumes
+    them unchanged. One deliberate approximation: resampling is
+    centre-aligned bilinear (browser uses canvas drawImage, Node
+    uses OpenCV) — same algorithm family, last-bit pixel differences
+    only. `PdfToolsScreen` chip: "Local Engine · PaddleOCR (Offline)".
+  - **APK size discipline:** `abiFilters` restricts native libraries
+    to arm64-v8a + armeabi-v7a — ONNX Runtime's AAR carries
+    66.5 MB (uncompressed) of x86/x86_64 .so that never ships; the
+    only other native libs are two kilobyte-scale androidx helpers
+    that ship the same two ABIs. Measured on this machine,
+    release-unsigned: 62,046,571 → 74,110,289 B (+12.0 MB: +47.1 MB
+    ORT .so for two ABIs and +6.27 MB models, against −38.3 MB of
+    ML Kit .so across four ABIs and the usual zip compression). The
+    published-form (debug-signed) asset: 69,228,368 (v1.2.2) →
+    81,457,821 B.
+  - **Verification:** Android unit tests 111/111 (87 existing + 24
+    new `V130PaddleOcrTest`: JS rounding/resize rules, dictionary
+    parse/alignment incl. the real 6,906-entry asset, CTC decode on
+    synthetic logits — dedupe, space class, gap spaces, fullwidth,
+    UNK — detection postprocess geometry, line grouping/merging/
+    splitting, reading order, whole-engine runs over fake models
+    incl. the confidence gate). Web: new `web/test/paddle-ocr.test.mjs`
+    (structural checks + all inline scripts parse + the REAL OCR
+    chunk driven against stubs — line drawing, service caching,
+    failure retry, Gemini branch byte-behaviour) and the three older
+    harnesses all pass. STRONG CHECK RAN, twice: (a) Node +
+    ppu-paddle-ocr + onnxruntime-node with the real models read a
+    PIL-rendered 3-line test image perfectly (confidences
+    0.96–0.99), identically for the bundled `.onnx` files and the
+    package's default `.ort` preset; (b) the ACTUAL compiled Kotlin
+    engine (desktop JVM + onnxruntime-java 1.26.0, same image, same
+    models) returned the same three lines exactly, boxes within
+    1 px of the Node run, ~0.6 s for a 1240×460 image. On-device
+    quality/speed on a real phone remains Shawn's final gate, as
+    with every OCR change; the engine's first run on device also
+    pays a one-time session build from assets.
+  - **Version alignment:** versionCode 18 / versionName 1.3.0;
+    Settings footers and the web edition's stamps at 1.3.0
+    ("Toolbox · <Edition> · Version 1.3.0 · by Shawn Rodis").
 - **Status (2026-10-22):** **v1.2.2** — versionCode 17, versionName `1.2.2`.
   Fix build (GitHub editions only; the web edition's only changes
   are the version stamps — it is the reference for both fixes):

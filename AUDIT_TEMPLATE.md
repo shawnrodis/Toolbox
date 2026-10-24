@@ -24,7 +24,7 @@ Summary audit (already done): `~/workspace/native-android/Toolbox_Native_Audit_2
 | 9 | Notes — list + editor, bullets, timestamps | ☐ | | | 1 |
 | 10 | Flight Tracker / SkyTrack — Aviationstack, saved flights, search history | ☐ | | | 2 |
 | 11 | SpongeBob Meme Generator — alternating-case transform, copy | ☐ | | | 1 |
-| 12 | PDF Tools — Merge, Split/Extract, Rotate, PDF→Images, Images→PDF, Gemini OCR (+ failover), Tesseract OCR, searchable OCR | ☐ | | | 3 |
+| 12 | PDF Tools — Merge, Split/Extract, Rotate, PDF→Images, Images→PDF, Gemini OCR (+ failover), PaddleOCR, searchable OCR | ☐ | | | 3 |
 | 13 | Square Pic — 2048×2048 PNG, blur/solid/gradient bg, fit vs fill/crop, pan | ☐ | | | 3 |
 | 14 | Translator — Gemini Gem logic (known item from the original Toolbox, 2026-10-07; confirm presence/scope in the uploaded file during the detailed pass) | ☐ | | | TBD |
 | 15 | Settings — 13 accent presets + custom color, home view (List/iPhone/Android), Desktop Mode, Light/Dark/Black, UI scale, sound, API keys (Aviationstack, Gemini 1 & 2), Sync Across Devices (custom URL + token, interval), Reset Everything | ☐ | | | 1 (Sync: 3) |
@@ -64,14 +64,14 @@ No IndexedDB use was found in the summary audit (104 `localStorage` uses).
   - Offline / failure behaviour in web version: _describe_
 - **File / browser APIs used:** _clipboard, file picker, download, canvas,
   html2canvas/html2pdf, Web Audio/sound, notifications, etc. — or "none"_
-- **External JS libraries:** _pdf-lib, pdf.js, Tesseract.js, Tailwind, etc. — or "none"_
+- **External JS libraries:** _pdf-lib, pdf.js, onnxruntime-web + ppu-paddle-ocr (PaddleOCR), Tailwind, etc. — or "none"_
 - **Native equivalent (Kotlin / Compose):**
   - Screen / route: _e.g. `Routes.XXX` + composable name_
   - State: _ViewModel / state holder design_
   - Storage: _DataStore (simple state) or Room (lists) — which, and schema_
   - Network: _Ktor/Retrofit client, caching_
-  - Platform replacement: _e.g. clipboard → ClipboardManager, OCR → ML Kit /
-    Gemini, PDF → PdfRenderer + Kotlin PDF library, export → native PDF/image generation_
+  - Platform replacement: _e.g. clipboard → ClipboardManager, OCR → PaddleOCR /
+    ONNX Runtime / Gemini, PDF → PdfRenderer + Kotlin PDF library, export → native PDF/image generation_
   - Permissions needed: _none, or list each + why_
 - **Accent theme / Settings interplay:** _does it follow accent, dark/black,
   UI scale, sound settings?_
