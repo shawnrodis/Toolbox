@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Toolbox (Shawn Rodis) — Web Edition v1.2.2 -->
+<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.0 -->
 <html lang="en" id="html-root" class="h-full w-full dark black selection:bg-indigo-500 selection:text-white overflow-x-hidden" data-accent="indigo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Toolbox (Shawn Rodis)</title>
-    <meta name="version" content="1.2.2">
+    <meta name="version" content="1.3.0">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -20,8 +20,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <!-- PDF.js for Rendering & Previewing PDF pages (PDF Tools) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <!-- Tesseract.js for Local Client-Side OCR (PDF Tools) -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- PaddleOCR (PDF Tools local engine): onnxruntime-web + ppu-paddle-ocr load lazily as ES modules on first OCR use; the import map pins every specifier the module graph needs. -->
+    <script type="importmap">
+    {
+        "imports": {
+            "onnxruntime-web": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0/dist/ort.all.bundle.min.mjs",
+            "ppu-ocv/web": "https://cdn.jsdelivr.net/npm/ppu-ocv@4.0.0/index.web.js",
+            "ppu-ocv/canvas-web": "https://cdn.jsdelivr.net/npm/ppu-ocv@4.0.0/index.canvas-web.js"
+        }
+    }
+    </script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -1709,7 +1717,7 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-xs text-slate-900 dark:text-white">App Updates</h3>
-                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.2.2</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
+                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.0</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
@@ -1721,7 +1729,7 @@
                     </div>
                 </div>
             </div>
-            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.2.2 · by Shawn Rodis</div>
+            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.0 · by Shawn Rodis</div>
         </section>
 
 <section id="tab-skytrack" class="tab-content space-y-4 hidden relative">
@@ -7289,7 +7297,7 @@ let sbmIsRandomMode = false;
         let currentViewMode = 'mobile';
         let activeTool = 'merge';
         let uploadedFiles = [];
-        let ocrEngine = 'tesseract';
+        let ocrEngine = 'paddle';
         let currentRotationAngle = 90;
         let selectedSplitPages = new Set();
         let currentPdfDoc = null;
@@ -7436,13 +7444,13 @@ let sbmIsRandomMode = false;
 
         function pdfSetOcrEngine(engine) {
             ocrEngine = engine;
-            const btnTesseract = document.getElementById('pdf-btn-ocr-tesseract');
+            const btnPaddle = document.getElementById('pdf-btn-ocr-paddle');
             const btnAi = document.getElementById('pdf-btn-ocr-ai');
 
-            if (engine === 'tesseract') {
-                btnTesseract.classList.add('active'); btnAi.classList.remove('active');
+            if (engine === 'paddle') {
+                btnPaddle.classList.add('active'); btnAi.classList.remove('active');
             } else {
-                btnAi.classList.add('active'); btnTesseract.classList.remove('active');
+                btnAi.classList.add('active'); btnPaddle.classList.remove('active');
             }
         }
 
@@ -7491,9 +7499,9 @@ let sbmIsRandomMode = false;
                         <div>
                             <label class="block text-xs font-semibold mb-2">OCR Engine Selector:</label>
                             <div class="grid grid-cols-2 gap-2">
-                                <button type="button" id="pdf-btn-ocr-tesseract" onclick="pdfSetOcrEngine('tesseract')" class="ocr-method-btn active border rounded-lg p-2.5 text-left flex flex-col gap-1 transition-all" style="border-color: var(--pdf-border-color);">
+                                <button type="button" id="pdf-btn-ocr-paddle" onclick="pdfSetOcrEngine('paddle')" class="ocr-method-btn active border rounded-lg p-2.5 text-left flex flex-col gap-1 transition-all" style="border-color: var(--pdf-border-color);">
                                     <div class="flex items-center gap-2 font-semibold text-xs"><i class="fa-solid fa-microchip text-emerald-400"></i> Local Engine</div>
-                                    <span class="text-[10px] text-gray-400">Tesseract.js (Offline)</span>
+                                    <span class="text-[10px] text-gray-400">PaddleOCR (Offline)</span>
                                 </button>
                                 <button type="button" id="pdf-btn-ocr-ai" onclick="pdfSetOcrEngine('ai')" class="ocr-method-btn border rounded-lg p-2.5 text-left flex flex-col gap-1 transition-all" style="border-color: var(--pdf-border-color);">
                                     <div class="flex items-center gap-2 font-semibold text-xs"><i class="fa-solid fa-wand-magic-sparkles text-blue-400"></i> AI Vision OCR</div>
@@ -7955,6 +7963,31 @@ let sbmIsRandomMode = false;
 
         function sanitizeText(str) { return (str||"").replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[^\x20-\x7E\xA0-\xFF]/g, ''); }
 
+        // Local OCR engine: PaddleOCR (PP-OCRv6 tiny) over ONNX Runtime Web, via the
+        // ppu-paddle-ocr module — the same model files the Android edition ships as
+        // assets. Loaded lazily on first use (module + ~6.3 MB of models, then cached
+        // by the browser); the service is created once and reused for every page/run.
+        let paddleOcrServicePromise = null;
+        function loadPaddleOcrService() {
+            if (!paddleOcrServicePromise) {
+                paddleOcrServicePromise = (async () => {
+                    const mod = await import('https://cdn.jsdelivr.net/npm/ppu-paddle-ocr@6.6.1/web/index.js');
+                    const service = new mod.PaddleOcrService({
+                        model: {
+                            detection: 'https://huggingface.co/snowfluke/ppu-paddle-ocr-models/resolve/main/detection/PP-OCRv6_tiny_det.onnx',
+                            recognition: 'https://huggingface.co/snowfluke/ppu-paddle-ocr-models/resolve/main/recognition/PP-OCRv6_tiny_rec.onnx',
+                            charactersDictionary: 'https://huggingface.co/snowfluke/ppu-paddle-ocr-models/resolve/main/recognition/ppocrv6_tiny_dict.txt'
+                        }
+                    });
+                    await service.initialize();
+                    return service;
+                })();
+                // A failed load (offline first use, CDN hiccup) must not poison later runs.
+                paddleOcrServicePromise.catch(() => { paddleOcrServicePromise = null; });
+            }
+            return paddleOcrServicePromise;
+        }
+
         async function processSearchableOCR() {
             const file = uploadedFiles[0];
             const pdf = await PDFLib.PDFDocument.create();
@@ -7979,22 +8012,33 @@ let sbmIsRandomMode = false;
                     const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
                     let text = "";
 
-                    if (ocrEngine === 'tesseract') {
-                        const worker = await Tesseract.createWorker('eng');
-                        const ret = await worker.recognize(blob);
-                        await worker.terminate();
-                        if (ret.data.words) {
-                            ret.data.words.forEach(w => {
-                                if (!w.bbox) return;
-                                const t = sanitizeText(w.text).trim();
-                                const x0 = w.bbox.x0 * (width / vp.width);
-                                const y1 = height - (w.bbox.y1 * (height / vp.height));
-                                const fontSize = Math.max(5, (w.bbox.y1 - w.bbox.y0) * (height / vp.height));
-                                if (t && isFinite(x0) && isFinite(y1) && isFinite(fontSize)) {
-                                    try { page.drawText(t, { x: x0, y: y1, size: fontSize, font, opacity: 0 }); } catch(e){}
-                                }
+                    if (ocrEngine === 'paddle') {
+                        const service = await loadPaddleOcrService();
+                        const ocrResult = await service.recognize(canvas);
+                        // PaddleOCR reports text per LINE (a line may arrive as several
+                        // adjacent segments): join a line's segments with spaces and draw
+                        // the line once at its union box, font size from the line height —
+                        // the same shape the Android edition's line-level results take.
+                        (ocrResult.lines || []).forEach(lineResults => {
+                            if (!lineResults || !lineResults.length) return;
+                            const parts = [];
+                            let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+                            lineResults.forEach(r => {
+                                const t = sanitizeText(r.text || '').trim();
+                                if (t) parts.push(t);
+                                if (!r.box) return;
+                                bx0 = Math.min(bx0, r.box.x); by0 = Math.min(by0, r.box.y);
+                                bx1 = Math.max(bx1, r.box.x + r.box.width); by1 = Math.max(by1, r.box.y + r.box.height);
                             });
-                        }
+                            const t = parts.join(' ');
+                            if (!t || !isFinite(bx0)) return;
+                            const x0 = bx0 * (width / vp.width);
+                            const y1 = height - (by1 * (height / vp.height));
+                            const fontSize = Math.max(5, (by1 - by0) * (height / vp.height));
+                            if (isFinite(x0) && isFinite(y1) && isFinite(fontSize)) {
+                                try { page.drawText(t, { x: x0, y: y1, size: fontSize, font, opacity: 0 }); } catch(e){}
+                            }
+                        });
                     } else {
                         text = await callAiVisionOcrWithFailover(await blobToBase64(blob));
                         if (text) {
