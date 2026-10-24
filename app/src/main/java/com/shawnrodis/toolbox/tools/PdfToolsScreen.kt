@@ -176,10 +176,10 @@ fun PdfToolsContent(store: AppStore, modifier: Modifier = Modifier) {
     val scalePref by store.stringState("pdf_suite_preview_scale", "").collectAsState(initial = "")
 
     // Source state block: activeTool 'merge', uploadedFiles [], ocrEngine
-    // 'tesseract', currentRotationAngle 90, selectedSplitPages empty set.
+    // 'paddle', currentRotationAngle 90, selectedSplitPages empty set.
     var activeTool by remember { mutableStateOf("merge") }
     var queue by remember { mutableStateOf<List<QueuedFile>>(emptyList()) }
-    var ocrEngine by remember { mutableStateOf("tesseract") }
+    var ocrEngine by remember { mutableStateOf("paddle") }
     var rotationAngle by remember { mutableStateOf(90) }
     var splitSelection by remember { mutableStateOf<LinkedHashSet<Int>>(linkedSetOf()) }
     var splitRangeText by remember { mutableStateOf("") }
@@ -559,9 +559,9 @@ fun PdfToolsContent(store: AppStore, modifier: Modifier = Modifier) {
                                 modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
                             ) {
                                 FilterChip(
-                                    selected = ocrEngine == "tesseract",
-                                    onClick = { ocrEngine = "tesseract" },
-                                    label = { Text("Local Engine · Tesseract.js (Offline)") },
+                                    selected = ocrEngine == "paddle",
+                                    onClick = { ocrEngine = "paddle" },
+                                    label = { Text("Local Engine · PaddleOCR (Offline)") },
                                     modifier = Modifier.weight(1f)
                                 )
                                 FilterChip(

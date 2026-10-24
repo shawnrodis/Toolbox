@@ -1,0 +1,25 @@
+PaddleOCR model attribution
+============================
+
+The PDF Tools local OCR engine in this app is PaddleOCR (PP-OCRv6, tiny
+tier) running on ONNX Runtime. The model files bundled in this folder:
+
+  PP-OCRv6_tiny_det.onnx   - text detection model
+  PP-OCRv6_tiny_rec.onnx   - text recognition model
+  ppocrv6_tiny_dict.txt    - recognition character dictionary
+
+are from the ppu-paddle-ocr-models repository
+(https://github.com/PT-Perkasa-Pilar-Utama/ppu-paddle-ocr-models),
+which redistributes PaddleOCR models converted to ONNX. PaddleOCR
+(https://github.com/PaddlePaddle/PaddleOCR) is Copyright (c) 2020
+PaddlePaddle and is licensed under the Apache License, Version 2.0.
+The ppu-paddle-ocr JavaScript/Kotlin-port ecosystem
+(https://www.npmjs.com/package/ppu-paddle-ocr) is MIT licensed;
+this app's pipeline is an independent Kotlin port of its PP-OCR
+processing math so the Android and web editions behave alike.
+
+ONNX Runtime (https://onnxruntime.ai) is Copyright (c) Microsoft
+Corporation and is licensed under the MIT License.
+
+Apache License, Version 2.0:
+http://www.apache.org/licenses/LICENSE-2.0

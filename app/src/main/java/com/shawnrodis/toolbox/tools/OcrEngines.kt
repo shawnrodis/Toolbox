@@ -1,13 +1,8 @@
 package com.shawnrodis.toolbox.tools
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.util.Base64
-import com.google.android.gms.tasks.Task
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.Text
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -16,13 +11,14 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * OCR engines for PDF Tools, ported from the source:
+ * OCR engines for PDF Tools:
  *
- *  - "Local Engine — Tesseract.js (Offline)" becomes ML Kit Text
- *    Recognition (bundled Latin model, fully on-device), the planned
- *    native equivalent. Word-level boxes are returned in the same shape
- *    the source consumes from Tesseract: text + bbox in rendered-image
- *    pixels.
+ *  - "Local Engine — PaddleOCR (Offline)" is true PaddleOCR (PP-OCRv6
+ *    tiny detection + recognition models over ONNX Runtime, bundled as
+ *    app assets) — the same engine and the same model files the web
+ *    edition runs via ppu-paddle-ocr. See PaddleOcr.kt for the
+ *    pipeline port. Results are LINE-level: text + box in
+ *    rendered-image pixels, the shape the searchable-PDF layer draws.
  *  - "AI Vision OCR — Cloud AI API Key" is callAiVisionOcrWithFailover():
  *    POST https://generativelanguage.googleapis.com/v1beta/models/
  *    gemini-3.6-flash:generateContent?key=<key> with
@@ -48,47 +44,29 @@ fun sanitizeOcrText(str: String?): String {
         .replace(Regex("[^\\x20-\\x7E\\xA0-\\xFF]"), "")
 }
 
-/** One recognised word with its box, in rendered-image pixels (Tesseract's shape). */
+/**
+ * One recognised text segment with its box, in rendered-image pixels.
+ * Since the PaddleOCR swap the local engine reports whole LINES, so a
+ * "word" here is one line of text with the line's box (the consumer
+ * draws each entry at its box, exactly as the web edition now does).
+ */
 data class OcrWord(
     val text: String,
     val x0: Int, val y0: Int, val x1: Int, val y1: Int
 )
 
-/** Awaits a Play Services Task without an extra coroutines artifact. */
-private suspend fun Task<Text>.awaitText(): Text = suspendCancellableCoroutine { cont ->
-    addOnSuccessListener { cont.resumeWith(Result.success(it)) }
-    addOnFailureListener { cont.resumeWith(Result.failure(it)) }
-    addOnCanceledListener { cont.cancel() }
-}
-
-/** Local engine: ML Kit on-device recognition, word (element) level. */
-suspend fun recognizeWordsLocal(bitmap: Bitmap): List<OcrWord> {
-    val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-    try {
-        val result = recognizer.process(InputImage.fromBitmap(bitmap, 0)).awaitText()
-        val out = mutableListOf<OcrWord>()
-        for (block in result.textBlocks) {
-            for (line in block.lines) {
-                for (el in line.elements) {
-                    val bb = el.boundingBox ?: continue
-                    out.add(OcrWord(el.text, bb.left, bb.top, bb.right, bb.bottom))
-                }
-            }
-        }
-        return out
-    } finally {
-        recognizer.close()
+/** Local engine: PaddleOCR on-device recognition, line level. */
+fun recognizeWordsLocal(context: Context, bitmap: Bitmap): List<OcrWord> {
+    return PaddleOcrRuntime.recognize(context, bitmap).map { line ->
+        OcrWord(line.text, line.box.x, line.box.y, line.box.x + line.box.width, line.box.y + line.box.height)
     }
 }
 
-/** Local engine plain text (used for the image-input OCR page). */
-suspend fun recognizeTextLocal(bitmap: Bitmap): String {
-    val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-    try {
-        return recognizer.process(InputImage.fromBitmap(bitmap, 0)).awaitText().text
-    } finally {
-        recognizer.close()
-    }
+/** Local engine plain text: lines grouped and joined with newlines, as the engine reports them. */
+fun recognizeTextLocal(context: Context, bitmap: Bitmap): String {
+    val results = PaddleOcrRuntime.recognize(context, bitmap)
+    return groupResultsByLine(results)
+        .joinToString("\n") { line -> line.joinToString(" ") { it.text } }
 }
 
 /** blobToBase64(): PNG bytes -> base64 payload (the data after the comma). */

@@ -12,8 +12,18 @@ android {
         applicationId = "com.shawnrodis.toolbox"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "1.2.2"
+        versionCode = 18
+        versionName = "1.3.0"
+
+        // ONNX Runtime ships native libraries for four ABIs. The app ships
+        // to physical phones/tablets only, so x86/x86_64 (emulator-only,
+        // ~half the runtime's .so weight) are filtered out. The only other
+        // native libraries in the app are two kilobyte-scale androidx
+        // helpers (graphics.path, datastore_shared_counter) that ship the
+        // same two ABIs, so nothing else needs the dropped ones.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -78,9 +88,11 @@ dependencies {
     // previews / PDF-to-images uses the framework PdfRenderer.
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
-    // Phase 3 — Offline OCR: ML Kit Text Recognition (bundled Latin model),
-    // the native equivalent of the web app's Tesseract.js local engine.
-    implementation("com.google.mlkit:text-recognition:16.0.0")
+    // Offline OCR: PaddleOCR (PP-OCRv6 tiny) over ONNX Runtime — the same
+    // models the web edition loads via ppu-paddle-ocr, shipped as assets
+    // under app/src/main/assets/ocr/ (see assets/ocr/NOTICE). Pinned to
+    // 1.26.0 to match the web edition's onnxruntime-web 1.26.0.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.26.0")
 
     // Phase 3 — Sync background scheduling (WorkManager; 15-min periodic
     // floor is an Android platform limit, see SyncEngine).

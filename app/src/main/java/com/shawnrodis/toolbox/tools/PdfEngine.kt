@@ -203,7 +203,7 @@ object PdfEngine {
         }
     }
 
-    /** OCR engine selector value from the source: "tesseract" | "ai". */
+    /** OCR engine selector value from the source: "paddle" (local) | "ai". */
     suspend fun searchablePdfFromPdf(
         context: Context, uri: Uri, engine: String, geminiKeys: List<String>
     ): ByteArray {
@@ -220,7 +220,7 @@ object PdfEngine {
                     val text = callAiVisionOcrWithFailover(bitmapToBase64Png(bmp), geminiKeys)
                     if (text.isNotEmpty()) addLineLayer(out, page, text)
                 } else {
-                    val words = recognizeWordsLocal(bmp)
+                    val words = recognizeWordsLocal(context, bmp)
                     addWordLayer(out, page, words, bmp.width, bmp.height)
                 }
             }
@@ -255,7 +255,7 @@ object PdfEngine {
             val text = callAiVisionOcrWithFailover(bitmapToBase64Png(bitmap), geminiKeys)
             if (text.isNotEmpty()) addLineLayer(doc, page, text)
         } else {
-            val words = recognizeWordsLocal(bitmap)
+            val words = recognizeWordsLocal(context, bitmap)
             addWordLayer(doc, page, words, bitmap.width, bitmap.height)
         }
         val bos = ByteArrayOutputStream()
