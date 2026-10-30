@@ -10,6 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Card
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -36,10 +38,33 @@ import com.shawnrodis.toolbox.ui.toast
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+/**
+ * Converts an entered HH:mm time-of-day from [fromZone] to [toZone],
+ * using [date] (today in the source zone by default) so DST is handled
+ * by the real zone rules. v1.3.4: powers the Tracked Times "Converted"
+ * mode; unparseable input renders "--:--".
+ */
+fun convertTrackedTime(time24: String, fromZone: String, toZone: String, date: LocalDate? = null): String {
+    val parts = time24.trim().split(":")
+    if (parts.size != 2) return "--:--"
+    val h = parts[0].toIntOrNull() ?: return "--:--"
+    val m = parts[1].toIntOrNull() ?: return "--:--"
+    if (h !in 0..23 || m !in 0..59) return "--:--"
+    return try {
+        val from = ZoneId.of(fromZone)
+        val day = date ?: LocalDate.now(from)
+        java.time.LocalDateTime.of(day, LocalTime.of(h, m)).atZone(from)
+            .withZoneSameInstant(ZoneId.of(toZone))
+            .format(DateTimeFormatter.ofPattern("hh:mm a", Locale.US))
+    } catch (e: Exception) { "--:--" }
+}
 
 /**
  * Time Converter — port of the source behaviour:
@@ -51,6 +76,9 @@ import java.util.Locale
  *    Intl.DateTimeFormat with timeZone + hour12:false)
  *  - tracked times render the live time per zone (source renderTrackedTimes,
  *    'en-US' hour12 format) and persist in toolbox_tracked_times.
+ *  - v1.3.4: a "Show converted time" switch above the tracked list flips
+ *    the rows between live clocks (default) and the entered time converted
+ *    from the selected region into each tracked zone.
  */
 @Composable
 fun TimeScreen(store: AppStore, onBack: () -> Unit) {
@@ -61,6 +89,7 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
 
     var zone by remember { mutableStateOf("America/New_York") }
     var time24 by remember { mutableStateOf("") }
+    var trackedMode by remember { mutableStateOf("live") }
     var loaded by remember { mutableStateOf(false) }
     // Recompute tracked clocks every 30s while the screen is open.
     var tick by remember { mutableStateOf(0) }
@@ -79,7 +108,7 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
         scope.launch {
             store.setStringState(
                 "toolbox_time_state",
-                JSONObject().put("zone", zone).put("time12", time24).put("time24", time24).toString()
+                JSONObject().put("zone", zone).put("time12", time24).put("time24", time24).put("trackedMode", trackedMode).toString()
             )
         }
     }
@@ -98,6 +127,7 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
                 val s = JSONObject(stateJson)
                 zone = s.optString("zone", zone).ifEmpty { zone }
                 time24 = s.optString("time24", "")
+                trackedMode = s.optString("trackedMode", "live").ifEmpty { "live" }
             } catch (e: Exception) { }
             loaded = true
         }
@@ -253,6 +283,20 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
 
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+        ) {
+            Text("Show converted time", style = MaterialTheme.typography.bodyMedium)
+            Switch(
+                checked = trackedMode == "converted",
+                onCheckedChange = {
+                    trackedMode = if (it) "converted" else "live"
+                    saveState()
+                }
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
         ) {
             Text("Tracked Times (${tracked.size})", style = MaterialTheme.typography.titleMedium)
@@ -272,7 +316,9 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
         // `tick` is read here so the cards re-render on the 30s refresh.
         if (tick < 0) Text("")
         tracked.forEachIndexed { idx, item ->
-            val live = try {
+            val shown = if (trackedMode == "converted") {
+                convertTrackedTime(time24, zone, item.zone)
+            } else try {
                 ZonedDateTime.now(ZoneId.of(item.zone))
                     .format(DateTimeFormatter.ofPattern("hh:mm a", Locale.US))
             } catch (e: Exception) { "--:--" }
@@ -285,7 +331,7 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
                         Text(item.label, style = MaterialTheme.typography.bodyMedium)
                         Text(item.zone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(live, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(shown, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                     TextButton(onClick = {
                         saveTracked(tracked.filterIndexed { i, _ -> i != idx })
                         toast(context, "Removed tracked time zone.")

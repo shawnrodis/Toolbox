@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.3 -->
+<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.4 -->
 <html lang="en" id="html-root" class="h-full w-full dark black selection:bg-indigo-500 selection:text-white overflow-x-hidden" data-accent="indigo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Toolbox (Shawn Rodis)</title>
-    <meta name="version" content="1.3.3">
+    <meta name="version" content="1.3.4">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -960,6 +960,10 @@
                         <i class="fa-solid fa-trash-can text-[10px]"></i> Clear All
                     </button>
                 </div>
+                <label class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400 cursor-pointer">
+                    <input type="checkbox" id="tracked-mode-toggle" class="accent-emerald-500" onchange="setTrackedMode(this.checked)">
+                    Show converted time
+                </label>
                 <div id="tracked-times-container" class="space-y-2">
                     <div class="text-center py-4 text-xs text-slate-400 dark:text-zinc-500">No country time zones tracked yet. Select a country above to add it to tracking.</div>
                 </div>
@@ -1717,7 +1721,7 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-xs text-slate-900 dark:text-white">App Updates</h3>
-                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.3</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
+                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.4</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
@@ -1729,7 +1733,7 @@
                     </div>
                 </div>
             </div>
-            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.3 · by Shawn Rodis</div>
+            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.4 · by Shawn Rodis</div>
         </section>
 
 <section id="tab-skytrack" class="tab-content space-y-4 hidden relative">
@@ -2575,6 +2579,9 @@
 
         let exchangeRatesData = { USD: 1 };
         let trackedTimesList = JSON.parse(localStorage.getItem('toolbox_tracked_times')) || [];
+        // v1.3.4: tracked rows show live clocks ('live', default) or the
+        // entered time converted from the selected region ('converted').
+        let trackedMode = 'live';
         let tallyItems = JSON.parse(localStorage.getItem('toolbox_tally_items')) || [];
         let shopItems = JSON.parse(localStorage.getItem('toolbox_shop_items')) || [];
         
@@ -4214,6 +4221,8 @@
             const tzObj = WORLD_TIME_ZONES.find(t => t.zone === tz);
             document.getElementById('display-region-info').textContent = tzObj ? tzObj.label : tz;
             saveTimeState();
+            // Converted rows follow the entered time as it changes.
+            if (document.getElementById('tracked-times-container')) renderTrackedTimes();
         }
 
         // Persist the time converter's editable fields so they sync across devices.
@@ -4222,7 +4231,8 @@
                 localStorage.setItem('toolbox_time_state', JSON.stringify({
                     zone: document.getElementById('time-zone-select').value,
                     time12: document.getElementById('time-12-input').value,
-                    time24: document.getElementById('time-24-input').value
+                    time24: document.getElementById('time-24-input').value,
+                    mode: trackedMode
                 }));
             } catch (e) { /* storage unavailable */ }
         }
@@ -4233,6 +4243,11 @@
                 if (s.zone) document.getElementById('time-zone-select').value = s.zone;
                 if (s.time12 !== undefined && s.time12 !== null) document.getElementById('time-12-input').value = s.time12;
                 if (s.time24 !== undefined && s.time24 !== null) document.getElementById('time-24-input').value = s.time24;
+                if (s.mode === 'live' || s.mode === 'converted') {
+                    trackedMode = s.mode;
+                    const t = document.getElementById('tracked-mode-toggle');
+                    if (t) t.checked = trackedMode === 'converted';
+                }
                 return true;
             } catch (e) { return false; }
         }
@@ -4250,6 +4265,41 @@
             }
         }
 
+        function setTrackedMode(converted) {
+            trackedMode = converted ? 'converted' : 'live';
+            saveTimeState();
+            renderTrackedTimes();
+        }
+
+        // Minutes the zone sits ahead of UTC at the given instant, from the
+        // engine's own zone rules (DST handled).
+        function tzOffsetMinutes(zone, utcMs) {
+            const fmt = new Intl.DateTimeFormat('en-US', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+            const p = fmt.formatToParts(new Date(utcMs));
+            const v = t => parseInt(p.find(x => x.type === t).value, 10);
+            const wallAsUtc = Date.UTC(v('year'), v('month') - 1, v('day'), v('hour'), v('minute'), v('second'));
+            return Math.round((wallAsUtc - utcMs) / 60000);
+        }
+
+        // Converts an entered HH:MM time-of-day from fromZone to toZone,
+        // using today's date in the source zone. Unparseable input -> '--:--'.
+        function convertTrackedTime(time24, fromZone, toZone) {
+            const m = /^(\d{1,2}):(\d{2})$/.exec((time24 || '').trim());
+            if (!m) return '--:--';
+            const hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+            if (hh > 23 || mm > 59) return '--:--';
+            try {
+                const parts = new Intl.DateTimeFormat('en-US', { timeZone: fromZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+                const get = t => parseInt(parts.find(p => p.type === t).value, 10);
+                const guess = Date.UTC(get('year'), get('month') - 1, get('day'), hh, mm);
+                const off1 = tzOffsetMinutes(fromZone, guess);
+                let utc = guess - off1 * 60000;
+                const off2 = tzOffsetMinutes(fromZone, utc);
+                if (off2 !== off1) utc = guess - off2 * 60000;
+                return new Intl.DateTimeFormat('en-US', { timeZone: toZone, hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(utc));
+            } catch (e) { return '--:--'; }
+        }
+
         function renderTrackedTimes() {
             const container = document.getElementById('tracked-times-container');
             document.getElementById('tracked-count').textContent = trackedTimesList.length;
@@ -4264,7 +4314,9 @@
 
             trackedTimesList.forEach((item, idx) => {
                 const options = { timeZone: item.zone, hour: '2-digit', minute: '2-digit', hour12: true };
-                const timeString = new Intl.DateTimeFormat('en-US', options).format(now);
+                const timeString = trackedMode === 'converted'
+                    ? convertTrackedTime(document.getElementById('time-24-input').value, document.getElementById('time-zone-select').value, item.zone)
+                    : new Intl.DateTimeFormat('en-US', options).format(now);
                 
                 const card = document.createElement('div');
                 card.className = 'bg-slate-50 dark:bg-zinc-950 p-3 rounded-xl border border-slate-200 dark:border-zinc-900 flex justify-between items-center text-xs';
