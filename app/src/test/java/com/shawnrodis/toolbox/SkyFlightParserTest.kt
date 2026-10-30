@@ -88,6 +88,20 @@ class SkyFlightParserTest {
     }
 
     @Test
+    fun timeRendersAirportLocalDigitsNotDeviceTimezone() {
+        // QR929, 2026-10-30: Google shows 11:50 PM Manila dep, 4:03 AM Doha arr.
+        // The ISOs carry those wall-clock digits; rendering must keep them
+        // whatever the device timezone is (v1.3.3: no device-tz conversion).
+        assertEquals("11:50 PM", formatSkyTime("2026-10-30T23:50:00+08:00", false))
+        assertEquals("23:50", formatSkyTime("2026-10-30T23:50:00+08:00", true))
+        assertEquals("04:03 AM", formatSkyTime("2026-10-31T04:03:00+03:00", false))
+        assertEquals("04:03", formatSkyTime("2026-10-31T04:03:00+03:00", true))
+        // The served +00:00 form of the same departure digits renders identically.
+        assertEquals("11:50 PM", formatSkyTime("2026-10-30T23:50:00+00:00", false))
+        assertEquals("11:50 PM", skyDisplayTime("2026-10-30T23:50:00+08:00", "07:50 PM", false))
+    }
+
+    @Test
     fun progressFollowsSourceStatusRules() {
         val landed = parseSkyFlight("AA100", JSONObject(sample.toString()).put("flight_status", "landed"))
         assertEquals(100, landed.progressPct)

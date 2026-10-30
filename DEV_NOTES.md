@@ -5,6 +5,12 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-30):** **v1.3.3** — versionCode 21, versionName `1.3.3`.
+  Flight Tracker times are airport-local now: `formatSkyTime()` renders
+  the ISO in its own offset instead of converting to the device timezone
+  (web `skyFormatTime()` extracts the ISO wall-clock digits); the 24-hour
+  toggle, Copy buttons, and share text follow automatically. Legacy
+  pre-v1.3.1 saves still show their stored string until re-tracked.
 - **Status (2026-10-30):** **v1.3.2** — versionCode 20, versionName `1.3.2`.
   Updater fix: `downloadUpdate()` now wraps its network I/O in
   `withContext(Dispatchers.IO)` — the Settings call site launches on Main,

@@ -64,7 +64,7 @@ import java.net.URLEncoder
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
-import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -97,7 +97,9 @@ import java.util.Locale
  *  - Times (source: new Date(x).toLocaleTimeString([], {hour:'2-digit',
  *    minute:'2-digit', hour12:false})): departure time comes from
  *    departure.scheduled, arrival time from arrival.estimated, rendered in
- *    the device timezone. A "24-hour time" toggle in the tool (on by
+ *    the offset the ISO string carries (airport-local wall-clock digits,
+ *    matching Google) rather than converted to the device timezone
+ *    (v1.3.3 fix). A "24-hour time" toggle in the tool (on by
  *    default, persisted in skytrack_mobile_state) switches the card, saved
  *    rows, and share text between 24-hour "HH:mm" and 12-hour "hh:mm a";
  *    anything missing/unparseable shows "--". The card's times each have a
@@ -192,18 +194,23 @@ private val skyTime24Fmt = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefaul
 private val skyTime12Fmt = DateTimeFormatter.ofPattern("hh:mm a", Locale.getDefault())
 
 /**
- * Formats an Aviationstack ISO time in the device timezone. [use24h] selects
- * 24-hour "HH:mm" (true) or 12-hour "hh:mm a" (false), matching the web tab's
- * toLocaleTimeString with hour12:false / hour12:true respectively.
+ * Formats an Aviationstack ISO time in the offset it carries — the
+ * airport-local wall-clock digits, the way Google shows flight times —
+ * NOT converted to the device timezone. [use24h] selects 24-hour "HH:mm"
+ * (true) or 12-hour "hh:mm a" (false).
+ * v1.3.3: device-timezone conversion made the card disagree with Google
+ * (QR929 on 2026-10-30: a 23:50 departure served as +00:00 showed as
+ * 07:50 PM Eastern instead of 11:50 PM); rendering the ISO's own offset
+ * shows the digits exactly as served.
  */
 fun formatSkyTime(iso: String?, use24h: Boolean = true): String {
     if (iso.isNullOrEmpty()) return "--"
     val fmt = if (use24h) skyTime24Fmt else skyTime12Fmt
     return try {
-        OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.systemDefault()).format(fmt)
+        OffsetDateTime.parse(iso).format(fmt)
     } catch (e: Exception) {
         try {
-            Instant.parse(iso).atZone(ZoneId.systemDefault()).format(fmt)
+            Instant.parse(iso).atZone(ZoneOffset.UTC).format(fmt)
         } catch (e2: Exception) {
             try {
                 LocalDateTime.parse(iso).format(fmt)
