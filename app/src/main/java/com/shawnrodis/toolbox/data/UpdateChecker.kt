@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -264,6 +265,13 @@ class UpdateManager private constructor(
      * is verified to really be this app's package before it is offered
      * to the installer. Returns the verified file, or null (with
      * [UpdateUiState.downloadError] set) on any failure.
+     *
+     * Network I/O always runs on [Dispatchers.IO] regardless of the
+     * caller's dispatcher: v1.3.2 fix — the Settings call site launches
+     * on Main, so before this wrap every download died immediately with
+     * NetworkOnMainThreadException, which the catch below reported as a
+     * generic "Download failed". (The check worked all along because
+     * [autoCheck]/[checkNow] launch on this manager's own IO scope.)
      */
     suspend fun downloadUpdate(): File? {
         val url = _state.value.apkUrl
@@ -274,7 +282,8 @@ class UpdateManager private constructor(
         _state.update {
             it.copy(downloading = true, downloadPercent = -1, downloadError = null, readyFile = null)
         }
-        return try {
+        return withContext(Dispatchers.IO) {
+            try {
             val dir = File(appContext.cacheDir, "updates").apply { mkdirs() }
             val out = File(dir, "Toolbox-update.apk")
             val conn = URL(url).openConnection() as HttpURLConnection
@@ -314,7 +323,7 @@ class UpdateManager private constructor(
                         downloadError = "That download wasn't a Toolbox package — install cancelled."
                     )
                 }
-                return null
+                return@withContext null
             }
             _state.update { it.copy(downloading = false, downloadPercent = 100, readyFile = out) }
             out
@@ -326,6 +335,7 @@ class UpdateManager private constructor(
                 )
             }
             null
+        }
         }
     }
 

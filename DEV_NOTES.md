@@ -5,6 +5,12 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-30):** **v1.3.2** — versionCode 20, versionName `1.3.2`.
+  Updater fix: `downloadUpdate()` now wraps its network I/O in
+  `withContext(Dispatchers.IO)` — the Settings call site launches on Main,
+  so every in-app download died with NetworkOnMainThreadException (reported
+  as a generic "Download failed") while the check worked via the manager's
+  own IO scope. PhotoCraft's updater already did this; Toolbox didn't.
 - **Status (2026-10-30):** **v1.3.1** — versionCode 19, versionName `1.3.1`.
   Flight Tracker: tool-scoped "24-hour time" toggle (on by default, persisted
   in skytrack_mobile_state; ISO times now stored per flight so the card, saved

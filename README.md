@@ -46,6 +46,10 @@ The **web edition is a web app that can be used on Windows, Mac, and Linux**: it
 
 Most tools can share their results or export them as JPG or PDF from the buttons in the tool's header.
 
+## What's new in 1.3.2
+
+- **Fixed: the in-app updater's download.** Tapping "Download & install" always failed with "Download failed" even though the release and the file were fine — the download ran its network call on Android's main thread, which Android refuses outright. The download now runs on a background thread, like the update check always did. (This one still needs a manual install from the link below, since the broken updater is what's on your phone now — after that, in-app updates work again.)
+
 ## What's new in 1.3.1
 
 - **Flight Tracker times are now 24-hour by default, with a toggle.** A "24-hour time" switch inside the Flight Tracker (not a global setting) flips the departure and arrival times, saved-flight rows, and share text between 24-hour and 12-hour format. It remembers your choice, and it defaults to 24-hour.
@@ -70,14 +74,14 @@ The Android app requires Android 8.0 (API 26) or newer.
 
 ### Web (Windows, Mac, and Linux)
 
-1. **Download [Toolbox_v1.3.1.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.1/Toolbox_v1.3.1.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
+1. **Download [Toolbox_v1.3.2.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.2/Toolbox_v1.3.2.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
 2. Open `Toolbox.html` in any modern browser — double-clicking the file works.
 
 That's all: the web app is a single self-contained HTML file with no install and no build step. It can also be placed on any static hosting service.
 
 ## Versioning
 
-The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.1.apk` and `Toolbox_v1.3.1.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
+The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.2.apk` and `Toolbox_v1.3.2.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
 
 ## Updates
 
