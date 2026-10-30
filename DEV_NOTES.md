@@ -5,7 +5,7 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
-- **Status (2026-10-30):** **v1.3.5** — versionCode 23, versionName `1.3.5`.
+- **Status (2026-10-30):** **v1.3.6** — versionCode 24, versionName `1.3.6`.
   Time Converter tracked rows gained a "Show converted time" switch
   (live clocks by default, persisted in toolbox_time_state): converted
   mode renders the entered HH:mm from the selected region into each

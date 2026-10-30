@@ -46,6 +46,10 @@ The **web edition is a web app that can be used on Windows, Mac, and Linux**: it
 
 Most tools can share their results or export them as JPG or PDF from the buttons in the tool's header.
 
+## What's new in 1.3.6
+
+- **Time Converter is a conversion tool now, with saved conversions.** The two rows fill each other in like the currency converter's base/target fields: enter a time in Time 1 and Time 2 fills itself with the converted time; edit Time 2 and Time 1 follows back. Changing a row's zone or tapping its Current button refills the other row too. Clearing a row clears the other one; half-typed input leaves it alone until it's valid. Tap Save conversion to keep the pair in a saved list (each entry shows both directions, the day-shift note, and the zone offset, and can be deleted). Tracked Times keep their live view, with the converted toggle unchanged.
+
 ## What's new in 1.3.5
 
 - **Time Converter: two times side by side, with a Compare button.** The tool now has two input rows (Time 1 and Time 2), each with its own time and zone, and each still converting between 12-hour and 24-hour. Tap Compare times and it saves the pair and shows each entered time converted into the other row's zone — including a "(previous day)" / "(next day)" note when the conversion crosses midnight — plus how far apart the zones are ("Qatar is 7 hours ahead of New York"). The tracked list keeps its live/converted toggle; converted mode now converts from Time 1, and each row has its own Current and Track zone buttons.
@@ -86,14 +90,14 @@ The Android app requires Android 8.0 (API 26) or newer.
 
 ### Web (Windows, Mac, and Linux)
 
-1. **Download [Toolbox_v1.3.5.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.5/Toolbox_v1.3.5.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
+1. **Download [Toolbox_v1.3.6.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.6/Toolbox_v1.3.6.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
 2. Open `Toolbox.html` in any modern browser — double-clicking the file works.
 
 That's all: the web app is a single self-contained HTML file with no install and no build step. It can also be placed on any static hosting service.
 
 ## Versioning
 
-The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.5.apk` and `Toolbox_v1.3.5.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
+The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.6.apk` and `Toolbox_v1.3.6.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
 
 ## Updates
 

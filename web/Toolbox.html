@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.5 -->
+<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.6 -->
 <html lang="en" id="html-root" class="h-full w-full dark black selection:bg-indigo-500 selection:text-white overflow-x-hidden" data-accent="indigo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Toolbox (Shawn Rodis)</title>
-    <meta name="version" content="1.3.5">
+    <meta name="version" content="1.3.6">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -989,11 +989,13 @@
                         </div>
                     </div>
 
-                    <button onclick="compareTimes()" class="w-full py-2.5 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-sm font-bold border border-slate-200 dark:border-zinc-800">Compare times</button>
+                    <button onclick="saveConversion()" class="w-full py-2.5 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-sm font-bold border border-slate-200 dark:border-zinc-800">Save conversion</button>
 
-                    <div id="compare-result" class="bg-slate-50 dark:bg-zinc-950/80 rounded-xl p-3.5 border border-slate-200 dark:border-zinc-900 space-y-1.5 text-xs">
-                        <div class="text-slate-400">Tap Compare times to save a comparison.</div>
+                    <div class="flex justify-between items-center pt-2">
+                        <span class="text-xs font-semibold text-slate-500 dark:text-zinc-400">Saved Conversions (<span id="saved-conversions-count">0</span>)</span>
+                        <button id="clear-saved-conversions" onclick="clearSavedConversions()" class="text-xs font-bold text-slate-500 dark:text-zinc-400">Clear All</button>
                     </div>
+                    <div id="saved-conversions" class="space-y-2"></div>
                 </div>
             </div>
 
@@ -1767,7 +1769,7 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-xs text-slate-900 dark:text-white">App Updates</h3>
-                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.5</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
+                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.6</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
@@ -1779,7 +1781,7 @@
                     </div>
                 </div>
             </div>
-            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.5 · by Shawn Rodis</div>
+            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.6 · by Shawn Rodis</div>
         </section>
 
 <section id="tab-skytrack" class="tab-content space-y-4 hidden relative">
@@ -2876,7 +2878,11 @@
             // Restore persisted editable-field state (currency, time, meme text).
             restoreCurrencyState();
             convertCurrency('base');
-            if (restoreTimeState()) { convertTimeFrom12(); convertTimeFrom12('2'); }
+            if (restoreTimeState()) {
+                // Linked rows: the set row refills the other on load.
+                if (document.getElementById('time-24-input').value) convertTimeFrom24();
+                else if (document.getElementById('time-24-input-2').value) convertTimeFrom24('2');
+            }
             restoreSplitState();
             calculateSplitExpense();
             restoreTipState();
@@ -4217,6 +4223,8 @@
         // Two rows (Time 1 / Time 2), each with its own 12h input, zone
         // picker and 24h field. Row 1 keeps the unsuffixed ids; row 2 uses
         // the '2' suffix. Converted tracked rows convert from Time 1.
+        // v1.3.6: the rows are linked like the currency converter's
+        // base/target fields — editing one refills the other.
         function setCurrentTime(quiet, suffix) {
             suffix = suffix || '';
             const now = new Date();
@@ -4233,23 +4241,38 @@
         function onTimeZoneSelected(suffix) {
             suffix = suffix || '';
             convertTimeFrom12(suffix);
+            propagateTimeRow(suffix);
             saveTimeState();
         }
 
         function convertTimeFrom12(suffix) {
             suffix = suffix || '';
             const timeVal = document.getElementById('time-12-input' + suffix).value;
-            if (!timeVal) return;
+            if (!timeVal) {
+                document.getElementById('time-24-input' + suffix).value = '';
+                document.getElementById('display-result-12' + suffix).textContent = '-';
+                document.getElementById('display-result-24' + suffix).textContent = '-';
+                propagateTimeRow(suffix);
+                return;
+            }
 
             let [hours, minutes] = timeVal.split(':').map(Number);
             const time24 = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
             document.getElementById('time-24-input' + suffix).value = time24;
             updateTimeDisplays(hours, minutes, time24, suffix);
+            propagateTimeRow(suffix);
         }
 
         function convertTimeFrom24(suffix) {
             suffix = suffix || '';
             const val = document.getElementById('time-24-input' + suffix).value.trim();
+            if (!val) {
+                document.getElementById('time-12-input' + suffix).value = '';
+                document.getElementById('display-result-12' + suffix).textContent = '-';
+                document.getElementById('display-result-24' + suffix).textContent = '-';
+                propagateTimeRow(suffix);
+                return;
+            }
             if (!val.includes(':')) return;
             const [hStr, mStr] = val.split(':');
             const hours = parseInt(hStr, 10);
@@ -4261,6 +4284,7 @@
             document.getElementById('time-12-input' + suffix).value = time12Str;
 
             updateTimeDisplays(hours, minutes, val, suffix);
+            propagateTimeRow(suffix);
         }
 
         function updateTimeDisplays(hours, minutes, time24, suffix) {
@@ -4282,8 +4306,8 @@
         }
 
         // Persist the time converter's editable fields so they sync across devices.
-        // Row 1 keeps the legacy keys; row 2 and the saved comparison are new.
-        let savedCompareA = null, savedCompareB = null;
+        // Row 1 keeps the legacy keys; row 2 and the saved conversions are new.
+        let savedConversions = [];
         function saveTimeState() {
             try {
                 localStorage.setItem('toolbox_time_state', JSON.stringify({
@@ -4293,8 +4317,7 @@
                     zone2: document.getElementById('time-zone-select-2').value,
                     time12_2: document.getElementById('time-12-input-2').value,
                     time24_2: document.getElementById('time-24-input-2').value,
-                    compareA: savedCompareA,
-                    compareB: savedCompareB,
+                    savedConversions: savedConversions,
                     mode: trackedMode
                 }));
             } catch (e) { /* storage unavailable */ }
@@ -4309,14 +4332,16 @@
                 if (s.zone2) document.getElementById('time-zone-select-2').value = s.zone2;
                 if (s.time12_2 !== undefined && s.time12_2 !== null) document.getElementById('time-12-input-2').value = s.time12_2;
                 if (s.time24_2 !== undefined && s.time24_2 !== null) document.getElementById('time-24-input-2').value = s.time24_2;
-                if (s.compareA) savedCompareA = s.compareA;
-                if (s.compareB) savedCompareB = s.compareB;
+                if (Array.isArray(s.savedConversions)) savedConversions = s.savedConversions;
+                else if (s.compareA && s.compareB) {
+                    savedConversions = [{ time24A: s.compareA.time24, zoneA: s.compareA.zone, time24B: s.compareB.time24, zoneB: s.compareB.zone }];
+                }
                 if (s.mode === 'live' || s.mode === 'converted') {
                     trackedMode = s.mode;
                     const t = document.getElementById('tracked-mode-toggle');
                     if (t) t.checked = trackedMode === 'converted';
                 }
-                renderCompare();
+                renderSavedConversions();
                 return true;
             } catch (e) { return false; }
         }
@@ -4345,36 +4370,71 @@
             return `${String(h12).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${ampm}`;
         }
 
-        // Saves the current pair and shows each entered time converted into
-        // the other row's zone (with a day-shift note when it crosses
-        // midnight), plus the offset between the zones.
-        function compareTimes() {
-            savedCompareA = { time24: document.getElementById('time-24-input').value, zone: document.getElementById('time-zone-select').value };
-            savedCompareB = { time24: document.getElementById('time-24-input-2').value, zone: document.getElementById('time-zone-select-2').value };
+        // Saves the current pair to the saved list. Each entry shows each
+        // entered time converted into the other row's zone (with a
+        // day-shift note when it crosses midnight), plus the zone offset.
+        function saveConversion() {
+            const t1 = document.getElementById('time-24-input').value;
+            const z1 = document.getElementById('time-zone-select').value;
+            const t2 = document.getElementById('time-24-input-2').value;
+            const z2 = document.getElementById('time-zone-select-2').value;
+            if (!t1 || !t2 || formatTime12(t1) === '--:--' || formatTime12(t2) === '--:--') {
+                showToast('Enter valid times in both rows first.');
+                return;
+            }
+            const entry = { time24A: t1, zoneA: z1, time24B: t2, zoneB: z2 };
+            if (savedConversions.some(e => e.time24A === t1 && e.zoneA === z1 && e.time24B === t2 && e.zoneB === z2)) {
+                showToast('That conversion is already saved.');
+                return;
+            }
+            savedConversions.push(entry);
             saveTimeState();
-            renderCompare();
-            showToast('Comparison saved.');
+            renderSavedConversions();
+            showToast('Conversion saved.');
         }
-        function renderCompare() {
-            const card = document.getElementById('compare-result');
-            if (!card) return;
-            if (!savedCompareA || !savedCompareB) {
-                card.innerHTML = `<div class="text-slate-400">Tap Compare times to save a comparison.</div>`;
+        function deleteSavedConversion(idx) {
+            savedConversions.splice(idx, 1);
+            saveTimeState();
+            renderSavedConversions();
+            showToast('Removed saved conversion.');
+        }
+        function clearSavedConversions() {
+            if (!savedConversions.length) return;
+            savedConversions = [];
+            saveTimeState();
+            renderSavedConversions();
+            showToast('Cleared all saved conversions.');
+        }
+        function renderSavedConversions() {
+            const container = document.getElementById('saved-conversions');
+            if (!container) return;
+            document.getElementById('saved-conversions-count').textContent = savedConversions.length;
+            const clearBtn = document.getElementById('clear-saved-conversions');
+            if (clearBtn) clearBtn.style.display = savedConversions.length ? '' : 'none';
+            if (!savedConversions.length) {
+                container.innerHTML = `<div class="text-xs text-slate-400">No conversions saved yet. Enter times above and tap Save conversion.</div>`;
                 return;
             }
             const label = z => { const o = WORLD_TIME_ZONES.find(t => t.zone === z); return o ? o.label : z; };
             const suffix = s => s === 1 ? ' (next day)' : s === -1 ? ' (previous day)' : s > 0 ? ` (${s} days later)` : s < 0 ? ` (${-s} days earlier)` : '';
-            const aToB = convertTrackedTimeFull(savedCompareA.time24, savedCompareA.zone, savedCompareB.zone);
-            const bToA = convertTrackedTimeFull(savedCompareB.time24, savedCompareB.zone, savedCompareA.zone);
-            const lines = [
-                `${formatTime12(savedCompareA.time24)} ${label(savedCompareA.zone)} = ${aToB.text} ${label(savedCompareB.zone)}${suffix(aToB.dayShift)}`,
-                `${formatTime12(savedCompareB.time24)} ${label(savedCompareB.zone)} = ${bToA.text} ${label(savedCompareA.zone)}${suffix(bToA.dayShift)}`
-            ];
-            if (aToB.utc !== null) {
-                const off = zoneOffsetLine(savedCompareA.zone, savedCompareB.zone, aToB.utc);
-                if (off) lines.push(off);
-            }
-            card.innerHTML = lines.map(l => `<div class="font-bold text-slate-800 dark:text-zinc-200">${l}</div>`).join('');
+            container.innerHTML = savedConversions.map((e, idx) => {
+                const aToB = convertTrackedTimeFull(e.time24A, e.zoneA, e.zoneB);
+                const bToA = convertTrackedTimeFull(e.time24B, e.zoneB, e.zoneA);
+                const lines = [
+                    `${formatTime12(e.time24A)} ${label(e.zoneA)} = ${aToB.text} ${label(e.zoneB)}${suffix(aToB.dayShift)}`,
+                    `${formatTime12(e.time24B)} ${label(e.zoneB)} = ${bToA.text} ${label(e.zoneA)}${suffix(bToA.dayShift)}`
+                ];
+                if (aToB.utc !== null) {
+                    const off = zoneOffsetLine(e.zoneA, e.zoneB, aToB.utc);
+                    if (off) lines.push(off);
+                }
+                return `<div class="bg-slate-50 dark:bg-zinc-950/80 rounded-xl p-3.5 border border-slate-200 dark:border-zinc-900 space-y-1.5 text-xs">
+                    <div class="flex justify-between items-start gap-2">
+                        <div class="space-y-1.5">${lines.map(l => `<div class="font-bold text-slate-800 dark:text-zinc-200">${l}</div>`).join('')}</div>
+                        <button onclick="deleteSavedConversion(${idx})" class="text-slate-400 font-bold px-1">✕</button>
+                    </div>
+                </div>`;
+            }).join('');
         }
 
         function zoneOffsetLine(zoneA, zoneB, utcMs) {
@@ -4435,6 +4495,53 @@
         }
         function convertTrackedTime(time24, fromZone, toZone) {
             return convertTrackedTimeFull(time24, fromZone, toZone).text;
+        }
+
+        // Converts an entered HH:MM time-of-day from fromZone to toZone and
+        // returns it as HH:MM (for filling the other row). '' when unparseable.
+        function convertTime24(time24, fromZone, toZone) {
+            const m = /^(\d{1,2}):(\d{2})$/.exec((time24 || '').trim());
+            if (!m) return '';
+            const hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+            if (hh > 23 || mm > 59) return '';
+            try {
+                const srcParts = new Intl.DateTimeFormat('en-US', { timeZone: fromZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+                const get = t => parseInt(srcParts.find(p => p.type === t).value, 10);
+                const guess = Date.UTC(get('year'), get('month') - 1, get('day'), hh, mm);
+                const off1 = tzOffsetMinutes(fromZone, guess);
+                let utc = guess - off1 * 60000;
+                const off2 = tzOffsetMinutes(fromZone, utc);
+                if (off2 !== off1) utc = guess - off2 * 60000;
+                const parts = new Intl.DateTimeFormat('en-US', { timeZone: toZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(utc));
+                const pget = t => parts.find(p => p.type === t).value;
+                let h = pget('hour'); if (h === '24') h = '00';
+                return `${h}:${pget('minute')}`;
+            } catch (e) { return ''; }
+        }
+
+        // Currency-style linking: editing one row refills the other with the
+        // converted time; empty clears the other row; invalid input leaves it.
+        function propagateTimeRow(fromSuffix) {
+            fromSuffix = fromSuffix || '';
+            const toSuffix = fromSuffix === '' ? '2' : '';
+            const t24 = document.getElementById('time-24-input' + fromSuffix).value;
+            const fromZone = document.getElementById('time-zone-select' + fromSuffix).value;
+            const toZone = document.getElementById('time-zone-select' + toSuffix).value;
+            if (!t24.trim()) {
+                document.getElementById('time-24-input' + toSuffix).value = '';
+                document.getElementById('time-12-input' + toSuffix).value = '';
+                document.getElementById('display-result-12' + toSuffix).textContent = '-';
+                document.getElementById('display-result-24' + toSuffix).textContent = '-';
+                saveTimeState();
+                if (document.getElementById('tracked-times-container')) renderTrackedTimes();
+                return;
+            }
+            const converted = convertTime24(t24, fromZone, toZone);
+            if (!converted) return;
+            document.getElementById('time-24-input' + toSuffix).value = converted;
+            document.getElementById('time-12-input' + toSuffix).value = converted;
+            const hh = parseInt(converted.slice(0, 2), 10), mm = parseInt(converted.slice(3, 5), 10);
+            updateTimeDisplays(hh, mm, converted, toSuffix);
         }
 
         function renderTrackedTimes() {
@@ -5288,17 +5395,12 @@
                     }
                 }
                 if (fileBase === 'time-converter') {
-                    const t12 = document.getElementById('time-12-input'), t24 = document.getElementById('time-24-input');
+                    const t24 = document.getElementById('time-24-input');
                     const tz = document.getElementById('time-zone-select');
-                    const t12b = document.getElementById('time-12-input-2'), t24b = document.getElementById('time-24-input-2');
                     const tzb = document.getElementById('time-zone-select-2');
-                    const parts = [];
-                    if (t12 && t12.value) parts.push(t12.value);
-                    if (t24 && t24.value) parts.push(t24.value);
-                    if (parts.length) {
-                        let out = 'Time conversion: ' + parts.join(' = ') + (tz && tz.value ? ' [' + tz.value + ']' : '');
-                        if (t24b && t24b.value) out += ' vs ' + t24b.value + (tzb && tzb.value ? ' [' + tzb.value + ']' : '');
-                        return out;
+                    if (t24 && t24.value) {
+                        const conv = convertTrackedTime(t24.value, tz.value, tzb.value);
+                        return 'Time conversion: ' + formatTime12(t24.value) + (tz && tz.value ? ' [' + tz.value + ']' : '') + ' = ' + conv + (tzb && tzb.value ? ' [' + tzb.value + ']' : '');
                     }
                 }
                 if (fileBase === 'flight-tracker' && typeof skyState !== 'undefined' && skyState.currentFlight) {

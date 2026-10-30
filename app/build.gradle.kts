@@ -12,8 +12,8 @@ android {
         applicationId = "com.shawnrodis.toolbox"
         minSdk = 26
         targetSdk = 35
-        versionCode = 23
-        versionName = "1.3.5"
+        versionCode = 24
+        versionName = "1.3.6"
 
         // ONNX Runtime ships native libraries for four ABIs. The app ships
         // to physical phones/tablets only, so x86/x86_64 (emulator-only,

@@ -1,6 +1,7 @@
 package com.shawnrodis.toolbox
 
 import com.shawnrodis.toolbox.tools.compareTimeRows
+import com.shawnrodis.toolbox.tools.convertTime24
 import com.shawnrodis.toolbox.tools.convertTrackedTime
 import com.shawnrodis.toolbox.tools.convertTrackedTimeFull
 import com.shawnrodis.toolbox.tools.zoneOffsetLine
@@ -74,6 +75,21 @@ class TimeConverterTest {
             "New York and New York share the same offset at this time",
             zoneOffsetLine("America/New_York", "America/New_York", at)
         )
+    }
+
+    @Test
+    fun linkedRowConversionReturns24HourTime() {
+        assertEquals(
+            "11:03",
+            convertTime24("04:03", "America/New_York", "Asia/Qatar", LocalDate.of(2026, 10, 30))
+        )
+        assertEquals(
+            "21:03",
+            convertTime24("04:03", "Asia/Qatar", "America/New_York", LocalDate.of(2026, 10, 31))
+        )
+        assertEquals("", convertTime24("", "America/New_York", "Asia/Qatar", LocalDate.of(2026, 10, 30)))
+        assertEquals("", convertTime24("25:00", "America/New_York", "Asia/Qatar", LocalDate.of(2026, 10, 30)))
+        assertEquals("", convertTime24("04:03", "No/Such_Zone", "Asia/Qatar", LocalDate.of(2026, 10, 30)))
     }
 
     @Test

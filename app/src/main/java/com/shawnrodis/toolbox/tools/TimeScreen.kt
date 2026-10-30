@@ -5,10 +5,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.MaterialTheme
@@ -57,12 +55,31 @@ import java.util.Locale
  * Per-row Current/Track buttons replace the old header Current button
  * and the picker's auto-track behaviour. Old single-row states migrate
  * to Time 1.
+ * v1.3.6: the rows are linked like the currency converter's base/target
+ * fields — editing one row refills the other with the converted time,
+ * and vice versa; empty clears the other row, invalid input leaves it
+ * alone. Zone changes and Current also refill the other row.
+ * Reframed as a conversion tool, not a comparison tool: Save conversion
+ * appends the pair to a saved list (each entry shows both directions,
+ * the day-shift note and the offset, and is deletable). Tracked Times
+ * keep their live view.
  */
 fun convertTrackedTime(time24: String, fromZone: String, toZone: String, date: LocalDate? = null): String =
     convertTrackedTimeFull(time24, fromZone, toZone, date).text
 
+/** "HH:mm" for an entered time converted into [toZone], or "" when unparseable. */
+fun convertTime24(time24: String, fromZone: String, toZone: String, date: LocalDate? = null): String {
+    val src = zonedInstant(time24, fromZone, date) ?: return ""
+    return try {
+        src.withZoneSameInstant(ZoneId.of(toZone)).format(DateTimeFormatter.ofPattern("HH:mm"))
+    } catch (e: Exception) { "" }
+}
+
 /** Rich result of convertTrackedTimeFull: rendered text plus day shift vs the source date. */
 data class ConvertedTime(val text: String, val dayShift: Int)
+
+/** One saved conversion: both rows' entered times and zones. */
+data class SavedConversion(val timeA: String, val zoneA: String, val timeB: String, val zoneB: String)
 
 fun convertTrackedTimeFull(time24: String, fromZone: String, toZone: String, date: LocalDate? = null): ConvertedTime {
     val src = zonedInstant(time24, fromZone, date) ?: return ConvertedTime("--:--", 0)
@@ -223,9 +240,8 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
     var zoneB by remember { mutableStateOf("Asia/Qatar") }
     var time24B by remember { mutableStateOf("") }
     var trackedMode by remember { mutableStateOf("live") }
-    // Saved comparison pair (time24 to zone), set by Compare; restored on reopen.
-    var savedA by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var savedB by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // Saved conversions, set by Save conversion; restored on reopen.
+    var savedConversions by remember { mutableStateOf<List<SavedConversion>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
     // Recompute tracked clocks every 30s while the screen is open.
     var tick by remember { mutableStateOf(0) }
@@ -246,8 +262,11 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
                 .put("zoneA", zoneA).put("time24A", time24A)
                 .put("zoneB", zoneB).put("time24B", time24B)
                 .put("trackedMode", trackedMode)
-            savedA?.let { state.put("compareA", JSONObject().put("time24", it.first).put("zone", it.second)) }
-            savedB?.let { state.put("compareB", JSONObject().put("time24", it.first).put("zone", it.second)) }
+            val savedArr = JSONArray()
+            savedConversions.forEach { c ->
+                savedArr.put(JSONObject().put("time24A", c.timeA).put("zoneA", c.zoneA).put("time24B", c.timeB).put("zoneB", c.zoneB))
+            }
+            state.put("savedConversions", savedArr)
             store.setStringState("toolbox_time_state", state.toString())
         }
     }
@@ -260,6 +279,18 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
         }
     }
 
+    // Currency-style linking: editing one row refills the other with the
+    // converted time; empty clears the other row; invalid input leaves it
+    // alone. Callers save state afterwards.
+    fun propagateFromA() {
+        if (time24A.isEmpty()) time24B = ""
+        else convertTime24(time24A, zoneA, zoneB).takeIf { it.isNotEmpty() }?.let { time24B = it }
+    }
+    fun propagateFromB() {
+        if (time24B.isEmpty()) time24A = ""
+        else convertTime24(time24B, zoneB, zoneA).takeIf { it.isNotEmpty() }?.let { time24A = it }
+    }
+
     LaunchedEffect(stateJson) {
         if (!loaded && stateJson.isNotEmpty()) {
             try {
@@ -270,8 +301,26 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
                 zoneB = s.optString("zoneB", "Asia/Qatar").ifEmpty { "Asia/Qatar" }
                 time24B = s.optString("time24B", "")
                 trackedMode = s.optString("trackedMode", "live").ifEmpty { "live" }
-                savedA = s.optJSONObject("compareA")?.let { it.optString("time24") to it.optString("zone") }
-                savedB = s.optJSONObject("compareB")?.let { it.optString("time24") to it.optString("zone") }
+                val savedArr = s.optJSONArray("savedConversions")
+                savedConversions = if (savedArr != null) {
+                    buildList {
+                        for (i in 0 until savedArr.length()) {
+                            val o = savedArr.optJSONObject(i) ?: continue
+                            add(SavedConversion(o.optString("time24A"), o.optString("zoneA"), o.optString("time24B"), o.optString("zoneB")))
+                        }
+                    }
+                } else {
+                    // Pre-reframe states carry a single saved comparison pair.
+                    val a = s.optJSONObject("compareA")
+                    val b = s.optJSONObject("compareB")
+                    if (a != null && b != null) listOf(
+                        SavedConversion(a.optString("time24"), a.optString("zone"), b.optString("time24"), b.optString("zone"))
+                    ) else emptyList()
+                }
+                // Linked rows: the set row refills the empty one on load,
+                // mirroring the currency tool recomputing its target.
+                if (time24A.isNotEmpty()) propagateFromA()
+                else if (time24B.isNotEmpty()) propagateFromB()
             } catch (e: Exception) { }
             loaded = true
         }
@@ -341,8 +390,8 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
                 "Time 1: $display12A [$zoneA]",
                 "Time 2: $display12B [$zoneB]"
             ) + tracked.map { "${it.label} (${it.zone})" },
-            shareText = if (time24A.isEmpty() && time24B.isEmpty()) "" else
-                "Time comparison: $display12A [$zoneA] vs $display12B [$zoneB]"
+            shareText = if (time24A.isEmpty()) "" else
+                "Time conversion: $display12A [$zoneA] = ${convertTrackedTime(time24A, zoneA, zoneB)} [$zoneB]"
         )
         // Each row keeps the full 12h <-> 24h conversion (12h input + 24h field);
         // the old single results box is retired because the fields already show both formats.
@@ -351,20 +400,23 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
             time12Text = time12TextA,
             on12Change = { v ->
                 time12TextA = v
-                parse12(v)?.let { time24A = it; saveState() }
+                if (v.isEmpty()) { time24A = ""; propagateFromA(); saveState() }
+                else parse12(v)?.let { time24A = it; propagateFromA(); saveState() }
             },
             zoneLabel = zoneLabelA,
             onZoneLabel = { label ->
                 val tz = WORLD_TIME_ZONES.find { it.label == label } ?: return@TimeRow
                 zoneA = tz.zone
+                propagateFromA()
                 saveState()
             },
             time24 = time24A,
             on24Change = { v ->
                 time24A = v.filter { it.isDigit() || it == ':' }.take(5)
+                propagateFromA()
                 saveState()
             },
-            onCurrent = { setCurrentTimeForRow({ time24A = it }, zoneA) },
+            onCurrent = { setCurrentTimeForRow({ time24A = it }, zoneA); propagateFromA(); saveState() },
             onTrack = { trackZone(zoneA) }
         )
         TimeRow(
@@ -372,50 +424,77 @@ fun TimeScreen(store: AppStore, onBack: () -> Unit) {
             time12Text = time12TextB,
             on12Change = { v ->
                 time12TextB = v
-                parse12(v)?.let { time24B = it; saveState() }
+                if (v.isEmpty()) { time24B = ""; propagateFromB(); saveState() }
+                else parse12(v)?.let { time24B = it; propagateFromB(); saveState() }
             },
             zoneLabel = zoneLabelB,
             onZoneLabel = { label ->
                 val tz = WORLD_TIME_ZONES.find { it.label == label } ?: return@TimeRow
                 zoneB = tz.zone
+                propagateFromB()
                 saveState()
             },
             time24 = time24B,
             on24Change = { v ->
                 time24B = v.filter { it.isDigit() || it == ':' }.take(5)
+                propagateFromB()
                 saveState()
             },
-            onCurrent = { setCurrentTimeForRow({ time24B = it }, zoneB) },
+            onCurrent = { setCurrentTimeForRow({ time24B = it }, zoneB); propagateFromB(); saveState() },
             onTrack = { trackZone(zoneB) }
         )
         Button(
             onClick = {
-                savedA = time24A to zoneA
-                savedB = time24B to zoneB
-                saveState()
-                toast(context, "Comparison saved.")
+                if (time24A.isEmpty() || time24B.isEmpty() ||
+                    time12Of(time24A) == "--:--" || time12Of(time24B) == "--:--") {
+                    toast(context, "Enter valid times in both rows first.")
+                    return@Button
+                }
+                val entry = SavedConversion(time24A, zoneA, time24B, zoneB)
+                if (savedConversions.contains(entry)) {
+                    toast(context, "That conversion is already saved.")
+                } else {
+                    savedConversions = savedConversions + entry
+                    saveState()
+                    toast(context, "Conversion saved.")
+                }
             },
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
-        ) { Text("Compare times") }
-        val comparisonLines = if (savedA != null && savedB != null) {
-            compareTimeRows(savedA!!.first, savedA!!.second, savedB!!.first, savedB!!.second)
-        } else null
-        if (comparisonLines != null) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp, MaterialTheme.colorScheme.outlineVariant
-                ),
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(14.dp)
+        ) { Text("Save conversion") }
+        Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
+        ) {
+            Text("Saved Conversions (${savedConversions.size})", style = MaterialTheme.typography.titleMedium)
+            if (savedConversions.isNotEmpty()) {
+                TextButton(onClick = { savedConversions = emptyList(); saveState(); toast(context, "Cleared all saved conversions.") }) {
+                    Text("Clear All")
+                }
+            }
+        }
+        if (savedConversions.isEmpty()) {
+            Text(
+                "No conversions saved yet. Enter times above and tap Save conversion.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        savedConversions.forEachIndexed { idx, entry ->
+            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth().padding(12.dp)
                 ) {
-                    comparisonLines.forEach { line ->
-                        Text(line, style = MaterialTheme.typography.bodyMedium)
+                    androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
+                        compareTimeRows(entry.timeA, entry.zoneA, entry.timeB, entry.zoneB).forEach { line ->
+                            Text(line, style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
+                    TextButton(onClick = {
+                        savedConversions = savedConversions.filterIndexed { i, _ -> i != idx }
+                        saveState()
+                        toast(context, "Removed saved conversion.")
+                    }) { Text("✕") }
                 }
             }
         }
