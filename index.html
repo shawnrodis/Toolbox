@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.8 -->
+<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.9 -->
 <html lang="en" id="html-root" class="h-full w-full dark black selection:bg-indigo-500 selection:text-white overflow-x-hidden" data-accent="indigo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Toolbox (Shawn Rodis)</title>
-    <meta name="version" content="1.3.8">
+    <meta name="version" content="1.3.9">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -162,7 +162,10 @@
         }
 
         /* App header is replaced by the taskbar */
-        body.desktop-active #app-header { display: none; }
+        /* v1.3.9: the top header is retired — the bottom bar is the
+           chrome in normal mode, and desktop mode never showed the
+           header either, so it stays hidden in both modes. */
+        #app-header { display: none; }
 
 
         /* Screen info widget (top-right, desktop mode only) */
@@ -197,9 +200,37 @@
             align-items: center; justify-content: center;
             transition: transform 0.15s ease;
         }
-        #home-fab.show { display: flex; }
         #home-fab:active { transform: scale(0.92); }
         body.desktop-active #home-fab { display: none !important; }
+
+        /* v1.3.9: bottom bar — the shell's chrome (replaces #app-header
+           + #home-fab). Fixed to the bottom of the same centred
+           max-w-md column the header used; top padding 4px above the
+           52px home circle, 0px below it (native 1.3.7/1.3.8 metrics),
+           plus the system safe area. Hidden in desktop mode, where the
+           taskbar is the chrome and windows keep their in-tab trio. */
+        #app-bottom-bar {
+            position: fixed; left: 50%; transform: translateX(-50%); bottom: 0;
+            width: 100%; max-width: 28rem; z-index: 40;
+            padding-bottom: max(0px, env(safe-area-inset-bottom));
+            background: rgba(255,255,255,0.90);
+            -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(15,23,42,0.12);
+        }
+        html.dark #app-bottom-bar { background: rgba(0,0,0,0.90); border-top-color: rgba(255,255,255,0.10); }
+        html.black #app-bottom-bar { background: rgba(5,5,5,0.96); border-top-color: #222222; }
+        body.desktop-active #app-bottom-bar { display: none; }
+        /* In normal mode the in-tab trio buttons hide (the bar carries
+           them); in desktop mode they show inside windows as before. */
+        body:not(.desktop-active) .tab-trio-btn { display: none !important; }
+        #bar-home-btn {
+            width: 52px; height: 52px; border-radius: 9999px; flex: none;
+            background: var(--accent-primary); color: #fff;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+            font-size: 20px; border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #bar-home-btn:active { transform: scale(0.92); }
 
         /* Quick tool switcher (mobile: long-press the home FAB) */
         #quick-switcher-overlay {
@@ -276,6 +307,12 @@
         /* Homescreen -> desktop icon grid (columns on the left, like Windows) */
         /* Mobile header desktop-mode toggle: accent highlight while desktop mode is on. */
         #desktop-mode-header-btn.is-on {
+            background: rgb(var(--accent-primary-rgb));
+            border-color: transparent;
+            color: #fff;
+        }
+        /* v1.3.9: same highlight for the bottom bar's desktop button. */
+        #desktop-mode-bar-btn.is-on {
             background: rgb(var(--accent-primary-rgb));
             border-color: transparent;
             color: #fff;
@@ -788,7 +825,7 @@
     </div>
 
     <!-- Main Content Container -->
-    <main class="flex-1 w-full max-w-md mx-auto px-4 pt-4 pb-12 space-y-5">
+    <main class="flex-1 w-full max-w-md mx-auto px-4 pt-4 pb-20 space-y-5">
 
         <!-- TAB 0: HOMESCREEN (LAUNCHER HUB) -->
         <section id="tab-home" class="tab-content space-y-4">
@@ -836,13 +873,13 @@
                         <button onclick="fetchExchangeRates()" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Fetch Live Rates">
                             <i id="rate-refresh-icon" class="fa-solid fa-rotate text-xs"></i>
                         </button>
-                        <button onclick="shareAppToJPG('currency-converter','Currency converter')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
+                        <button onclick="shareAppToJPG('currency-converter','Currency converter')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
                             <i class="fa-solid fa-share-nodes text-xs text-emerald-500"></i> Share
                         </button>
-                        <button onclick="exportToolToJPG('tab-curr','currency-converter','Currency converter')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
+                        <button onclick="exportToolToJPG('tab-curr','currency-converter','Currency converter')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
                             <i class="fa-solid fa-file-image text-xs text-sky-500"></i>
                         </button>
-                        <button onclick="exportToolToPDF('tab-curr','currency-converter','Currency converter')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
+                        <button onclick="exportToolToPDF('tab-curr','currency-converter','Currency converter')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
                             <i class="fa-solid fa-file-pdf text-xs text-rose-500"></i>
                         </button>
                     </div>
@@ -900,13 +937,13 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-1.5">
-                        <button onclick="shareAppToJPG('time-converter','Time converter')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
+                        <button onclick="shareAppToJPG('time-converter','Time converter')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
                             <i class="fa-solid fa-share-nodes text-xs text-emerald-500"></i> Share
                         </button>
-                        <button onclick="exportToolToJPG('tab-time','time-converter','Time converter')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
+                        <button onclick="exportToolToJPG('tab-time','time-converter','Time converter')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
                             <i class="fa-solid fa-file-image text-xs text-sky-500"></i>
                         </button>
-                        <button onclick="exportToolToPDF('tab-time','time-converter','Time converter')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
+                        <button onclick="exportToolToPDF('tab-time','time-converter','Time converter')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
                             <i class="fa-solid fa-file-pdf text-xs text-rose-500"></i>
                         </button>
                     </div>
@@ -1031,13 +1068,13 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5">
-                    <button onclick="shareAppToJPG('shopping-assistant','Shopping assistant')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
+                    <button onclick="shareAppToJPG('shopping-assistant','Shopping assistant')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
                             <i class="fa-solid fa-share-nodes text-xs text-emerald-500"></i> Share
                         </button>
-                    <button onclick="exportToolToJPG('tab-unit','shopping-assistant','Shopping assistant')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
+                    <button onclick="exportToolToJPG('tab-unit','shopping-assistant','Shopping assistant')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
                         <i class="fa-solid fa-file-image text-xs text-sky-500"></i>
                     </button>
-                    <button onclick="exportToolToPDF('tab-unit','shopping-assistant','Shopping assistant')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
+                    <button onclick="exportToolToPDF('tab-unit','shopping-assistant','Shopping assistant')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
                         <i class="fa-solid fa-file-pdf text-xs text-rose-500"></i>
                     </button>
                 </div>
@@ -1136,13 +1173,13 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5">
-                    <button onclick="shareAppToJPG('pto-tracker','PTO tracker')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
+                    <button onclick="shareAppToJPG('pto-tracker','PTO tracker')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
                             <i class="fa-solid fa-share-nodes text-xs text-emerald-500"></i> Share
                         </button>
-                    <button onclick="exportToolToJPG('tab-pto','pto-tracker','PTO tracker')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
+                    <button onclick="exportToolToJPG('tab-pto','pto-tracker','PTO tracker')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
                         <i class="fa-solid fa-file-image text-xs text-sky-500"></i>
                     </button>
-                    <button onclick="exportToolToPDF('tab-pto','pto-tracker','PTO tracker')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
+                    <button onclick="exportToolToPDF('tab-pto','pto-tracker','PTO tracker')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
                         <i class="fa-solid fa-file-pdf text-xs text-rose-500"></i>
                     </button>
                     <button onclick="openPtoModal()" class="p-2.5 accent-bg text-white rounded-xl text-xs font-bold shadow-md active:scale-95 transition">
@@ -1229,13 +1266,13 @@
                         Copy Summary
                     </button>
                     <div class="flex gap-2">
-                        <button onclick="shareAppToJPG('split-gas-parking','Gas split')" class="flex-1 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-1.5" title="Share JPG">
+                        <button onclick="shareAppToJPG('split-gas-parking','Gas split')" class="tab-trio-btn flex-1 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-1.5" title="Share JPG">
                             <i class="fa-solid fa-share-nodes text-emerald-500"></i> Share
                         </button>
-                        <button onclick="exportSplitToJPG()" class="flex-1 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-1.5">
+                        <button onclick="exportSplitToJPG()" class="tab-trio-btn flex-1 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-1.5">
                             <i class="fa-solid fa-file-image text-sky-500"></i> Export JPG
                         </button>
-                        <button onclick="exportSplitToPDF()" class="flex-1 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-1.5">
+                        <button onclick="exportSplitToPDF()" class="tab-trio-btn flex-1 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-1.5">
                             <i class="fa-solid fa-file-pdf text-rose-500"></i> Export PDF
                         </button>
                     </div>
@@ -1299,13 +1336,13 @@
                         Copy Tip Breakdown
                     </button>
                     <div class="flex gap-2">
-                        <button onclick="shareAppToJPG('tip-calculator','Tip breakdown')" class="flex-1 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-1.5" title="Share JPG">
+                        <button onclick="shareAppToJPG('tip-calculator','Tip breakdown')" class="tab-trio-btn flex-1 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-1.5" title="Share JPG">
                             <i class="fa-solid fa-share-nodes text-emerald-500"></i> Share
                         </button>
-                        <button onclick="exportTipToJPG()" class="flex-1 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-1.5">
+                        <button onclick="exportTipToJPG()" class="tab-trio-btn flex-1 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-1.5">
                             <i class="fa-solid fa-file-image text-sky-500"></i> Export JPG
                         </button>
-                        <button onclick="exportTipToPDF()" class="flex-1 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-1.5">
+                        <button onclick="exportTipToPDF()" class="tab-trio-btn flex-1 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 font-bold text-xs rounded-xl transition border border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-1.5">
                             <i class="fa-solid fa-file-pdf text-rose-500"></i> Export PDF
                         </button>
                     </div>
@@ -1327,13 +1364,13 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-1.5">
-                        <button onclick="shareAppToJPG('unit-converter','Unit converter')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
+                        <button onclick="shareAppToJPG('unit-converter','Unit converter')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
                             <i class="fa-solid fa-share-nodes text-xs text-emerald-500"></i> Share
                         </button>
-                        <button onclick="exportToolToJPG('tab-unitconv','unit-converter','Unit converter')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
+                        <button onclick="exportToolToJPG('tab-unitconv','unit-converter','Unit converter')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
                             <i class="fa-solid fa-file-image text-xs text-sky-500"></i>
                         </button>
-                        <button onclick="exportToolToPDF('tab-unitconv','unit-converter','Unit converter')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
+                        <button onclick="exportToolToPDF('tab-unitconv','unit-converter','Unit converter')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
                             <i class="fa-solid fa-file-pdf text-xs text-rose-500"></i>
                         </button>
                     </div>
@@ -1391,13 +1428,13 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-1.5">
-                        <button onclick="shareAppToJPG('tally-export','Tally list')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
+                        <button onclick="shareAppToJPG('tally-export','Tally list')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
                             <i class="fa-solid fa-share-nodes text-xs text-emerald-500"></i> Share
                         </button>
-                        <button onclick="exportTallyToJPG()" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
+                        <button onclick="exportTallyToJPG()" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
                             <i class="fa-solid fa-file-image text-xs text-sky-500"></i> JPG
                         </button>
-                        <button onclick="exportTallyToPDF()" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
+                        <button onclick="exportTallyToPDF()" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
                             <i class="fa-solid fa-file-pdf text-xs text-rose-500"></i> PDF
                         </button>
                     </div>
@@ -1433,13 +1470,13 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-1.5">
-                        <button onclick="shareAppToJPG('notes-tool','Notes')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
+                        <button onclick="shareAppToJPG('notes-tool','Notes')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Share JPG">
                             <i class="fa-solid fa-share-nodes text-xs text-emerald-500"></i> Share
                         </button>
-                        <button onclick="exportToolToJPG('tab-notes','notes-tool','Notes')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
+                        <button onclick="exportToolToJPG('tab-notes','notes-tool','Notes')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to JPG">
                             <i class="fa-solid fa-file-image text-xs text-sky-500"></i> JPG
                         </button>
-                        <button onclick="exportToolToPDF('tab-notes','notes-tool','Notes')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
+                        <button onclick="exportToolToPDF('tab-notes','notes-tool','Notes')" class="tab-trio-btn p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
                             <i class="fa-solid fa-file-pdf text-xs text-rose-500"></i> PDF
                         </button>
                     </div>
@@ -1769,7 +1806,7 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-xs text-slate-900 dark:text-white">App Updates</h3>
-                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.8</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
+                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.9</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
@@ -1781,7 +1818,7 @@
                     </div>
                 </div>
             </div>
-            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.8 · by Shawn Rodis</div>
+            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.9 · by Shawn Rodis</div>
         </section>
 
 <section id="tab-skytrack" class="tab-content space-y-4 hidden relative">
@@ -1799,13 +1836,13 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5">
-                    <button onclick="shareAppToJPG('flight-tracker','Flight tracker')" class="px-2.5 py-1.5 rounded-xl sky-card-subtle hover:opacity-80 border text-xs font-semibold flex items-center gap-1 transition-all active:scale-95" title="Share JPG">
+                    <button onclick="shareAppToJPG('flight-tracker','Flight tracker')" class="tab-trio-btn px-2.5 py-1.5 rounded-xl sky-card-subtle hover:opacity-80 border text-xs font-semibold flex items-center gap-1 transition-all active:scale-95" title="Share JPG">
                         <i class="fa-solid fa-share-nodes text-[11px] text-emerald-400"></i>
                     </button>
-                    <button onclick="exportToolToJPG('tab-skytrack','flight-tracker','Flight tracker')" class="px-2.5 py-1.5 rounded-xl sky-card-subtle hover:opacity-80 border text-xs font-semibold flex items-center gap-1 transition-all active:scale-95" title="Export to JPG">
+                    <button onclick="exportToolToJPG('tab-skytrack','flight-tracker','Flight tracker')" class="tab-trio-btn px-2.5 py-1.5 rounded-xl sky-card-subtle hover:opacity-80 border text-xs font-semibold flex items-center gap-1 transition-all active:scale-95" title="Export to JPG">
                         <i class="fa-solid fa-file-image text-[11px] text-sky-400"></i>
                     </button>
-                    <button onclick="exportToolToPDF('tab-skytrack','flight-tracker','Flight tracker')" class="px-2.5 py-1.5 rounded-xl sky-card-subtle hover:opacity-80 border text-xs font-semibold flex items-center gap-1 transition-all active:scale-95" title="Export to PDF">
+                    <button onclick="exportToolToPDF('tab-skytrack','flight-tracker','Flight tracker')" class="tab-trio-btn px-2.5 py-1.5 rounded-xl sky-card-subtle hover:opacity-80 border text-xs font-semibold flex items-center gap-1 transition-all active:scale-95" title="Export to PDF">
                         <i class="fa-solid fa-file-pdf text-[11px] text-rose-400"></i>
                     </button>
                 </div>
@@ -2296,6 +2333,43 @@
         </section>
     </main>
 
+    <!-- v1.3.9: bottom bar — the shell's chrome in normal mode (replaces
+         #app-header + #home-fab). Chrome buttons left, export trio
+         centre (shown only for the active tab's trio, wired by
+         updateBottomBarTrio), home at the far right. Hidden in desktop
+         mode, where the taskbar is the chrome. -->
+    <nav id="app-bottom-bar" data-html2canvas-ignore="true" aria-label="App controls">
+        <div class="mx-auto px-4 flex items-center gap-2" style="padding-top:4px">
+            <button onclick="toggleFullscreen()" title="Toggle fullscreen" class="fullscreen-toggle-btn p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs transition active:scale-95 border border-slate-200 dark:border-zinc-800">
+                <i class="fa-solid fa-expand"></i>
+            </button>
+            <button onclick="toggleDesktopMode()" id="desktop-mode-bar-btn" title="Toggle desktop mode" class="p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs transition active:scale-95 border border-slate-200 dark:border-zinc-800">
+                <i class="fa-solid fa-desktop"></i>
+            </button>
+            <button onclick="switchTab('tab-settings')" title="Settings" class="p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs transition active:scale-95 border border-slate-200 dark:border-zinc-800">
+                <i class="fa-solid fa-gear"></i>
+            </button>
+            <button id="toolbox-sound-btn-bar" onclick="toggleToolboxSound()" title="Mute sounds" class="p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs transition active:scale-95 border border-slate-200 dark:border-zinc-800">
+                <i class="fa-solid fa-volume-high"></i>
+            </button>
+            <span id="bar-trio-group" class="flex items-center gap-2" style="display:none">
+                <button onclick="barTrioAction('share')" title="Share JPG" class="p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 border border-slate-200 dark:border-zinc-800">
+                    <i class="fa-solid fa-share-nodes text-emerald-500"></i>
+                </button>
+                <button onclick="barTrioAction('jpg')" title="Export to JPG" class="p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 border border-slate-200 dark:border-zinc-800">
+                    <i class="fa-solid fa-file-image text-sky-500"></i>
+                </button>
+                <button onclick="barTrioAction('pdf')" title="Export to PDF" class="p-2 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 border border-slate-200 dark:border-zinc-800">
+                    <i class="fa-solid fa-file-pdf text-rose-500"></i>
+                </button>
+            </span>
+            <span class="flex-1"></span>
+            <button id="bar-home-btn" title="Home — tap to go home, hold for quick switcher" aria-label="Back to home (hold for quick tool switcher)">
+                <i class="fa-solid fa-house"></i>
+            </button>
+        </div>
+    </nav>
+
     <!-- DESKTOP TASKBAR (desktop mode only) -->
     <nav id="desktop-taskbar" aria-label="Desktop taskbar">
         <div class="taskbar-left" title="UI scale">
@@ -2724,6 +2798,8 @@
             }
             const __hbInit = document.getElementById('desktop-mode-header-btn');
             if (__hbInit) __hbInit.classList.toggle('is-on', isDesktop);
+            const __hbBarInit = document.getElementById('desktop-mode-bar-btn');
+            if (__hbBarInit) __hbBarInit.classList.toggle('is-on', isDesktop);
 
             if (window.pdfSyncMode) window.pdfSyncMode();
 
@@ -2896,6 +2972,33 @@
             } catch (e) { /* ignore */ }
         }
 
+        // v1.3.9: bottom-bar export trio — per-tab actions, copied from
+        // the tab's own trio buttons (same functions, same arguments).
+        // A tab absent from this map has no trio, and the bar group
+        // stays hidden for it. Split/Tip/Tally use their dedicated
+        // no-argument export functions; the rest use the shared ones.
+        const BAR_TRIO_TABS = {
+            'tab-curr': { share: () => shareAppToJPG('currency-converter', 'Currency converter'), jpg: () => exportToolToJPG('tab-curr', 'currency-converter', 'Currency converter'), pdf: () => exportToolToPDF('tab-curr', 'currency-converter', 'Currency converter') },
+            'tab-time': { share: () => shareAppToJPG('time-converter', 'Time converter'), jpg: () => exportToolToJPG('tab-time', 'time-converter', 'Time converter'), pdf: () => exportToolToPDF('tab-time', 'time-converter', 'Time converter') },
+            'tab-unit': { share: () => shareAppToJPG('shopping-assistant', 'Shopping assistant'), jpg: () => exportToolToJPG('tab-unit', 'shopping-assistant', 'Shopping assistant'), pdf: () => exportToolToPDF('tab-unit', 'shopping-assistant', 'Shopping assistant') },
+            'tab-pto': { share: () => shareAppToJPG('pto-tracker', 'PTO tracker'), jpg: () => exportToolToJPG('tab-pto', 'pto-tracker', 'PTO tracker'), pdf: () => exportToolToPDF('tab-pto', 'pto-tracker', 'PTO tracker') },
+            'tab-split': { share: () => shareAppToJPG('split-gas-parking', 'Gas split'), jpg: () => exportSplitToJPG(), pdf: () => exportSplitToPDF() },
+            'tab-tip': { share: () => shareAppToJPG('tip-calculator', 'Tip breakdown'), jpg: () => exportTipToJPG(), pdf: () => exportTipToPDF() },
+            'tab-unitconv': { share: () => shareAppToJPG('unit-converter', 'Unit converter'), jpg: () => exportToolToJPG('tab-unitconv', 'unit-converter', 'Unit converter'), pdf: () => exportToolToPDF('tab-unitconv', 'unit-converter', 'Unit converter') },
+            'tab-tally': { share: () => shareAppToJPG('tally-export', 'Tally list'), jpg: () => exportTallyToJPG(), pdf: () => exportTallyToPDF() },
+            'tab-notes': { share: () => shareAppToJPG('notes-tool', 'Notes'), jpg: () => exportToolToJPG('tab-notes', 'notes-tool', 'Notes'), pdf: () => exportToolToPDF('tab-notes', 'notes-tool', 'Notes') },
+            'tab-skytrack': { share: () => shareAppToJPG('flight-tracker', 'Flight tracker'), jpg: () => exportToolToJPG('tab-skytrack', 'flight-tracker', 'Flight tracker'), pdf: () => exportToolToPDF('tab-skytrack', 'flight-tracker', 'Flight tracker') }
+        };
+        let __barTrio = null;
+        function updateBottomBarTrio(tabId) {
+            __barTrio = BAR_TRIO_TABS[tabId] || null;
+            const group = document.getElementById('bar-trio-group');
+            if (group) group.style.display = __barTrio ? '' : 'none';
+        }
+        function barTrioAction(kind) {
+            if (__barTrio && __barTrio[kind]) __barTrio[kind]();
+        }
+
         function switchTab(tabId) {
             activeTabId = tabId;
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -2927,6 +3030,9 @@
                     if (subText) { subText.style.display = ''; subText.textContent = 'Toolbox Utility'; }
                 }
             }
+
+            // v1.3.9: the bottom bar's trio follows the active tab.
+            updateBottomBarTrio(tabId);
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -2963,33 +3069,39 @@
             if (sheet) sheet.classList.remove('open');
             if (overlay) overlay.classList.remove('open');
         }
-        (function initHomeFabQuickSwitcher() {
-            const fab = document.getElementById('home-fab');
-            if (!fab) return;
+        // v1.3.9: home-button behaviour (tap = home, hold ~550ms = quick
+        // switcher) shared by the retired #home-fab and the bottom bar's
+        // #bar-home-btn, so both stay wired the same way.
+        function bindHomeButton(btn) {
+            if (!btn) return;
             let lpTimer = null, lpFired = false, startX = 0, startY = 0;
             const LONG_PRESS_MS = 550, MOVE_TOLERANCE_PX = 12;
 
-            fab.addEventListener('click', () => {
+            btn.addEventListener('click', () => {
                 // Swallow the click that trails a long-press.
                 if (lpFired) { lpFired = false; return; }
                 closeQuickSwitcher();
                 switchTab('tab-home');
             });
-            fab.addEventListener('pointerdown', (e) => {
+            btn.addEventListener('pointerdown', (e) => {
                 lpFired = false;
                 startX = e.clientX; startY = e.clientY;
                 clearTimeout(lpTimer);
                 lpTimer = setTimeout(() => { lpFired = true; openQuickSwitcher(); }, LONG_PRESS_MS);
             });
             const cancelLp = () => clearTimeout(lpTimer);
-            fab.addEventListener('pointerup', cancelLp);
-            fab.addEventListener('pointercancel', cancelLp);
-            fab.addEventListener('pointerleave', cancelLp);
-            fab.addEventListener('pointermove', (e) => {
+            btn.addEventListener('pointerup', cancelLp);
+            btn.addEventListener('pointercancel', cancelLp);
+            btn.addEventListener('pointerleave', cancelLp);
+            btn.addEventListener('pointermove', (e) => {
                 if (Math.hypot(e.clientX - startX, e.clientY - startY) > MOVE_TOLERANCE_PX) clearTimeout(lpTimer);
             });
             // Don't let the OS context menu fight the long-press on mobile.
-            fab.addEventListener('contextmenu', (e) => e.preventDefault());
+            btn.addEventListener('contextmenu', (e) => e.preventDefault());
+        }
+        (function initHomeButtons() {
+            bindHomeButton(document.getElementById('home-fab'));
+            bindHomeButton(document.getElementById('bar-home-btn'));
 
             const overlay = document.getElementById('quick-switcher-overlay');
             if (overlay) overlay.addEventListener('click', closeQuickSwitcher);
@@ -3453,6 +3565,8 @@
             document.getElementById('desktop-mode-btn').textContent = isActive ? 'Disable' : 'Enable';
             const __hb = document.getElementById('desktop-mode-header-btn');
             if (__hb) __hb.classList.toggle('is-on', isActive);
+            const __hbBar = document.getElementById('desktop-mode-bar-btn');
+            if (__hbBar) __hbBar.classList.toggle('is-on', isActive);
             if (!auto) localStorage.setItem('toolbox_desktop', isActive);
             window.__wmAutoDesktop = !!auto && isActive;
             if (isActive) {
@@ -5198,7 +5312,7 @@
         function updateSoundBtns() {
             const on = toolboxSoundOn();
             const html = '<i class="fa-solid ' + (on ? 'fa-volume-high' : 'fa-volume-xmark') + '"></i>';
-            ['toolbox-sound-btn', 'toolbox-sound-btn-taskbar'].forEach(id => {
+            ['toolbox-sound-btn', 'toolbox-sound-btn-taskbar', 'toolbox-sound-btn-bar'].forEach(id => {
                 const btn = document.getElementById(id);
                 if (btn) { btn.innerHTML = html; btn.title = on ? 'Mute sounds' : 'Unmute sounds'; }
             });
