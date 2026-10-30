@@ -1,0 +1,47 @@
+# Publish the web edition to GitHub Pages — automatically, on every change.
+#
+# The repo's website link (shawnrodis.github.io/Toolbox/) must always
+# serve the latest web edition. The gh-pages branch holds a single
+# index.html copied from main's web/Toolbox.html; this workflow keeps
+# it in sync on every push to main that touches the web file, so no
+# manual refresh is ever needed. Manual dispatch covers the case where
+# the branches drift for any other reason. Runs serialize on one
+# group so two quick pushes can't race the gh-pages push.
+name: Publish web edition to Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/Toolbox.html']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-sync
+  cancel-in-progress: false
+
+jobs:
+  sync-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          path: main
+          ref: main
+      - name: Check out gh-pages
+        uses: actions/checkout@v4
+        with:
+          path: pages
+          ref: gh-pages
+          fetch-depth: 0
+      - name: Sync index.html and push if changed
+        run: |
+          cp main/web/Toolbox.html pages/index.html
+          cd pages
+          git config user.name "Shawn Rodis"
+          git config user.email "shawnrodis@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || { git commit -m "Pages: sync web edition from main"; git push origin gh-pages; }

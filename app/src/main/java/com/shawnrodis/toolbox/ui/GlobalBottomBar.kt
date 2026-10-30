@@ -86,8 +86,14 @@ fun GlobalBottomBar(
             .background(MaterialTheme.colorScheme.surface)
     ) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        // v1.3.10: the outer row spaces its groups by the same 7dp the
+        // groups use internally. Without this the chrome group and the
+        // trio group sat flush against each other (0dp seam) while every
+        // other gap was 7dp — visibly uneven. Home is untouched: same
+        // 52dp circle, still pinned right by the 12dp edge padding.
         Row(
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 // v1.3.7: tight 4dp top padding so the bar hugs the
