@@ -5,7 +5,8 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
-- **Status (2026-10-30):** **v1.3.6** — versionCode 24, versionName `1.3.6`.
+- **Status (2026-10-30):** **v1.3.7** — versionCode 25, versionName `1.3.7`.
+  Bottom bar replaces the top GlobalHeader + floating Home button in the mobile shell (Scaffold bottomBar slot; 4 action icons left, home right with long-press quick switcher; bar hugs the home circle with 4dp vertical padding; old 88dp FAB clearance retired). Web edition keeps its top header pending a decision.
   Time Converter tracked rows gained a "Show converted time" switch
   (live clocks by default, persisted in toolbox_time_state): converted
   mode renders the entered HH:mm from the selected region into each

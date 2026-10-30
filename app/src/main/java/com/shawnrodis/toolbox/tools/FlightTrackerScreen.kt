@@ -338,8 +338,8 @@ private fun SkyStatusBadge(status: String) {
  * the content composable stays window-agnostic: it takes a [Modifier]
  * from its host and keeps all persistent state in the shared [AppStore]
  * (DataStore "skytrack_mobile_state"), never in activity-scoped state.
- * v1.0.1 (defect #4c): no Material TopAppBar — the global header + Home
- * FAB frame the tab, as in the source; [onBack] is retained for the
+ * v1.0.1 (defect #4c): no Material TopAppBar — v1.3.7's bottom bar
+ * frames the tab, as in the source; [onBack] is retained for the
  * shared call-site signature.
  */
 @Composable
@@ -430,8 +430,8 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
 
         Column(
             modifier = modifier
-                // v1.0.2 (defect D): bottom = FAB clearance in the mobile
-                // shell (scrollContentBottomPadding), 8dp in windows.
+                // v1.3.7: bottom = breathing gap only; the Scaffold
+                // bottomBar slot pads content above the bar.
                 .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = scrollContentBottomPadding())
                 .verticalScroll(scrollState)
         ) {

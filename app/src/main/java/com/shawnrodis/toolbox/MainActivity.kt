@@ -4,23 +4,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -32,15 +24,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -70,7 +58,7 @@ import com.shawnrodis.toolbox.tools.TimeScreen
 import com.shawnrodis.toolbox.tools.TipScreen
 import com.shawnrodis.toolbox.tools.UnitConverterScreen
 import com.shawnrodis.toolbox.ui.DesktopShell
-import com.shawnrodis.toolbox.ui.GlobalHeader
+import com.shawnrodis.toolbox.ui.GlobalBottomBar
 import com.shawnrodis.toolbox.ui.parsePins
 import com.shawnrodis.toolbox.ui.toolByRoute
 import com.shawnrodis.toolbox.ui.toast
@@ -232,99 +220,67 @@ fun ToolboxApp(store: AppStore, settings: AppSettings) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val pinsJson by store.stringState("toolbox_taskbar_pins", "[]").collectAsState(initial = "[]")
-    // v1.0.1 (defect #2 amendment): the global header title is DYNAMIC —
-    // switchTab() sets it per tab. v1.2.1 (Shawn's request): the home
-    // subtitle ("Shawn Rodis") is gone — the name now lives only in the
-    // Settings footer ("… · by Shawn Rodis") — so home passes an empty
-    // subtitle and GlobalHeader renders no subtitle line; any other tab
-    // (Settings included) -> registry name / "Toolbox Utility".
-    val onHome = currentRoute == null || currentRoute == Routes.HOME
-    val headerTitle = if (onHome) "Toolbox" else toolByRoute(currentRoute!!)?.name ?: "Toolbox"
-    val headerSubtitle = if (onHome) "" else "Toolbox Utility"
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             // v1.0.2 (defect C): edge-to-edge is on, so the shell must
             // consume the safe-drawing insets itself — status bar,
             // display cutout (punch-hole: top in portrait, mid-left edge
-            // in landscape) and navigation bar. The global header no
-            // longer sits under the status bar/cutout and content never
-            // runs under the nav bar. With the app's fullscreen
+            // in landscape) and navigation bar. Content never runs under
+            // the status bar/cutout or the nav bar. With the app's fullscreen
             // (immersive) mode ON the system bars are hidden, the
             // reported insets collapse to zero and the shell expands to
             // the full screen, exactly like the source.
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        GlobalHeader(
-            title = headerTitle,
-            subtitle = headerSubtitle,
-            fullscreen = FullscreenState.active.value,
-            soundOn = settings.sound,
-            onBrandClick = { navController.popBackStack(Routes.HOME, inclusive = false) },
-            onToggleFullscreen = { FullscreenState.toggle() },
-            onToggleDesktop = {
-                // Source toggleDesktopMode(): persisted toolbox_desktop;
-                // the manual choice wins over autoDesktopOrientation.
-                if (desktopActive) {
-                    if (settings.desktopMode) {
-                        scope.launch { store.setSetting("toolbox_desktop", "false") }
-                    }
-                    suppressAuto = true
-                    toast(context, "Desktop layout disabled.")
-                } else {
-                    suppressAuto = false
-                    scope.launch { store.setSetting("toolbox_desktop", "true") }
-                    toast(context, "Desktop layout enabled.")
-                }
-            },
-            onOpenSettings = {
-                if (currentRoute != Routes.SETTINGS) navController.navigate(Routes.SETTINGS)
-            },
-            onToggleSound = {
-                // Source toggleToolboxSound(): persist, toast, and beep
-                // 880Hz/90ms when turning sounds ON.
-                val next = !settings.sound
-                scope.launch { store.setSound(next) }
-                if (next) toolboxBeep(true, 880, 90)
-                toast(context, if (next) "Sounds on." else "Sounds off.")
-            }
-        )
         Scaffold(
         modifier = Modifier.weight(1f),
         // v1.0.2 (defect C): the outer Column already applied the
         // safe-drawing insets; Scaffold's default content insets
         // (system bars) would pad the NavHost a second time.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        floatingActionButton = {
-            // Source #home-fab: floating Home button shown while inside a
-            // tool — tap goes home, long-press opens the quick switcher.
-            if (currentRoute != null && currentRoute != Routes.HOME) {
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .shadow(8.dp, CircleShape)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                        .combinedClickable(
-                            onClick = {
-                                navController.popBackStack(Routes.HOME, inclusive = false)
-                            },
-                            onLongClick = {
-                                // v1.2.1: long-press haptic (quick switcher).
-                                ToolboxHaptics.longPressTick()
-                                quickSwitcherOpen = true
-                            }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.Home,
-                        contentDescription = "Home — hold for quick switcher",
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
+        // v1.3.7: the mobile shell's chrome is a bottom bar (the old top
+        // GlobalHeader and the floating home button are gone). As the
+        // Scaffold's bottomBar slot, its height is folded into the
+        // content padding below, so no screen slides underneath it.
+        bottomBar = {
+            GlobalBottomBar(
+                fullscreen = FullscreenState.active.value,
+                soundOn = settings.sound,
+                onToggleFullscreen = { FullscreenState.toggle() },
+                onToggleDesktop = {
+                    // Source toggleDesktopMode(): persisted toolbox_desktop;
+                    // the manual choice wins over autoDesktopOrientation.
+                    if (desktopActive) {
+                        if (settings.desktopMode) {
+                            scope.launch { store.setSetting("toolbox_desktop", "false") }
+                        }
+                        suppressAuto = true
+                        toast(context, "Desktop layout disabled.")
+                    } else {
+                        suppressAuto = false
+                        scope.launch { store.setSetting("toolbox_desktop", "true") }
+                        toast(context, "Desktop layout enabled.")
+                    }
+                },
+                onOpenSettings = {
+                    if (currentRoute != Routes.SETTINGS) navController.navigate(Routes.SETTINGS)
+                },
+                onToggleSound = {
+                    // Source toggleToolboxSound(): persist, toast, and beep
+                    // 880Hz/90ms when turning sounds ON.
+                    val next = !settings.sound
+                    scope.launch { store.setSound(next) }
+                    if (next) toolboxBeep(true, 880, 90)
+                    toast(context, if (next) "Sounds on." else "Sounds off.")
+                },
+                onHome = { navController.popBackStack(Routes.HOME, inclusive = false) },
+                onHomeLongPress = {
+                    // v1.2.1: long-press haptic (quick switcher).
+                    ToolboxHaptics.longPressTick()
+                    quickSwitcherOpen = true
                 }
-            }
+            )
         }
     ) { pad ->
         NavHost(

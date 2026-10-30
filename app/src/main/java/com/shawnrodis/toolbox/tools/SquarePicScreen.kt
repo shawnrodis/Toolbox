@@ -273,14 +273,15 @@ fun renderSquareBitmap(
 
 @Composable
 fun SquarePicScreen(store: AppStore, onBack: () -> Unit) {
-    // v1.0.1 (defect #4c): no Material TopAppBar — global header + Home FAB.
-    // v1.0.2 (defect D): padding AFTER the scroll modifier = scrollable
-    // content padding, so the last controls can scroll clear of the FAB.
+    // v1.0.1 (defect #4c): no Material TopAppBar — bottom bar chrome.
+    // v1.3.7: padding AFTER the scroll modifier = scrollable content
+    // padding; the Scaffold bottomBar slot clears the bar, so only an
+    // 8dp breathing gap is needed (was 88dp for the old FAB).
     SquarePicContent(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(bottom = 88.dp)
+            .padding(bottom = 8.dp)
     )
 }
 

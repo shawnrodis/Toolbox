@@ -56,8 +56,8 @@ check(
 );
 check('sub-label reads PaddleOCR (Offline)', html.includes('PaddleOCR (Offline)'));
 check('default engine state is paddle', html.includes("let ocrEngine = 'paddle';"));
-check('version stamps at 1.3.6', html.includes('<meta name="version" content="1.3.6">') &&
-    html.includes('Web Edition v1.3.6') && html.includes('Version 1.3.6 · by Shawn Rodis'));
+check('version stamps at 1.3.7', html.includes('<meta name="version" content="1.3.7">') &&
+    html.includes('Web Edition v1.3.7') && html.includes('Version 1.3.7 · by Shawn Rodis'));
 
 // ---------- 2. syntax-check every inline classic script ----------
 

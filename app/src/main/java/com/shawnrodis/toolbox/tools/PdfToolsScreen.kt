@@ -164,7 +164,7 @@ private fun rememberImageBitmap(context: Context, file: QueuedFile?): Bitmap? {
 
 @Composable
 fun PdfToolsScreen(store: AppStore, onBack: () -> Unit) {
-    // v1.0.1 (defect #4c): no Material TopAppBar — global header + Home FAB.
+    // v1.0.1 (defect #4c): no Material TopAppBar — bottom bar chrome.
     PdfToolsContent(store, Modifier.fillMaxSize())
 }
 
@@ -332,8 +332,8 @@ fun PdfToolsContent(store: AppStore, modifier: Modifier = Modifier) {
 
     Column(
         modifier = modifier
-            // v1.0.2 (defect D): bottom = FAB clearance in the mobile
-            // shell (scrollContentBottomPadding), 8dp in windows.
+            // v1.3.7: bottom = breathing gap only; the Scaffold
+            // bottomBar slot pads content above the bar.
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = scrollContentBottomPadding())
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)

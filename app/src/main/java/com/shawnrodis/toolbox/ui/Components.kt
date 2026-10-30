@@ -92,9 +92,10 @@ val LocalInDesktopWindow = compositionLocalOf { false }
 
 /**
  * Screen shell — v1.0.1 (defect #4c): NO Material TopAppBar any more. The
- * HTML has none: the global #app-header (native GlobalHeader) sits above
- * every tab and the Home FAB is the way back, exactly as on the web. This
- * host is now just the scrollable content column in BOTH shells; inside a
+ * HTML has none: v1.3.7 moved the mobile chrome to a bottom bar (the
+ * old top GlobalHeader and floating Home button are gone), and the
+ * Scaffold's bottomBar slot pads this content above it. This host is
+ * now just the scrollable content column in BOTH shells; inside a
  * Desktop Mode window the window titlebar is the frame instead (the
  * source hides #app-header in desktop mode too). [title]/[onBack] are
  * kept in the signature for call-site compatibility; [onBack] is no
@@ -112,22 +113,17 @@ fun ToolScreen(title: String, onBack: () -> Unit, content: @Composable ColumnSco
 }
 
 /**
- * v1.0.2 (defect D) — bottom clearance for scrollable tool/home content
- * in the MOBILE shell: the floating Home button (52dp + its 16dp
- * Scaffold margin) overlays the bottom-end of the content, and in
- * v1.0.1 the last card could not scroll clear of it (Currency's
- * EXCHANGE RATE status text ran underneath the FAB). The mobile value
- * is FAB height + margin + a breathing gap; inside a Desktop Mode
- * window there is no FAB, so the plain 8dp stands. Padding sits OUTSIDE
- * the scroll modifier (as ToolScreen already had it), so the scroll
- * viewport itself ends above the FAB and the last card can always
- * scroll fully into the clear.
+ * v1.3.7 — bottom clearance for scrollable tool content. The mobile
+ * shell's Scaffold bottomBar slot already pads content above the
+ * bottom bar, so screens only add a plain 8dp breathing gap here (the
+ * old 88dp FAB clearance died with the floating Home button).
+ * Padding sits OUTSIDE the scroll modifier (as ToolScreen already had
+ * it), so the scroll viewport ends above the bar and the last card
+ * can always scroll fully into the clear. Desktop Mode windows never
+ * had the bar either, so they keep the same 8dp.
  */
-internal const val FAB_CLEARANCE_DP = 88f
-
 @Composable
-fun scrollContentBottomPadding(): Dp =
-    if (LocalInDesktopWindow.current) 8.dp else FAB_CLEARANCE_DP.dp
+fun scrollContentBottomPadding(): Dp = 8.dp
 
 /** PCM tone synthesis for toolboxBeep — a tiny Web Audio oscillator port. */
 object SynthTone {
@@ -459,7 +455,7 @@ object ToolboxHaptics {
     /**
      * v1.2.1 — the long-press counterpart of [tick]: every long-press
      * trigger in the app (home-tile pin toggle, desktop-icon context
-     * menu, desktop blank-space menu, the Home FAB's quick switcher)
+     * menu, desktop blank-space menu, the home button's quick switcher)
      * fires this BEFORE its action, gated by the same toolbox_haptics
      * toggle. Shawn: "it should occur when anything is long pressed."
      */

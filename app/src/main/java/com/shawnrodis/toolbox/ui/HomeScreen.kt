@@ -265,11 +265,11 @@ private fun ListHome(
     onOpen: (String) -> Unit,
     onLongPress: (ToolEntry) -> Unit
 ) {
-    // v1.0.2 (defect D): bottom content padding so the last card can
-    // scroll fully clear of the floating Home button zone.
+    // v1.3.7: bottom content padding — the Scaffold bottomBar slot
+    // already clears the bar, so only an 8dp breathing gap is needed.
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(bottom = FAB_CLEARANCE_DP.dp)
+        contentPadding = PaddingValues(bottom = 8.dp)
     ) {
         items(tools) { tool ->
             Card(
@@ -433,11 +433,11 @@ private fun AndroidHome(
     onOpen: (String) -> Unit,
     onLongPress: (ToolEntry) -> Unit
 ) {
-    // v1.0.2 (defect D): bottom content padding, same clearance as List.
+    // v1.3.7: bottom content padding, same breathing gap as List.
     LazyVerticalGrid(
         columns = GridCells.Fixed(4),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = FAB_CLEARANCE_DP.dp)
+        contentPadding = PaddingValues(bottom = 8.dp)
     ) {
         items(tools) { tool ->
             HomeTile(
@@ -454,8 +454,8 @@ private fun AndroidHome(
  * Source openQuickSwitcher(): bottom sheet listing the DISPLAY tools
  * (sortedToolsForDisplay — so no Settings tile, exactly like the source)
  * except the active one, in a 4-column tile grid ("Quick Switch" title +
- * close button). Opened by long-pressing the floating Home button
- * (home-fab) inside a tool.
+ * close button). Opened by long-pressing the home button in the
+ * bottom bar inside a tool.
  */
 @Composable
 fun QuickSwitcherSheet(

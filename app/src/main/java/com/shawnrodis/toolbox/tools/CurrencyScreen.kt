@@ -250,7 +250,7 @@ fun CurrencyScreen(store: AppStore, onBack: () -> Unit) {
                     textAlign = TextAlign.End,
                     // v1.0.2 (defect D): weighted so the status WRAPS
                     // inside the summary box instead of pushing out of
-                    // its right edge (where the Home FAB overlays).
+                    // its right edge.
                     modifier = Modifier.weight(1f)
                 )
             }
