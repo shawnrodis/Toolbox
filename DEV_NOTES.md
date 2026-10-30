@@ -5,9 +5,10 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
-- **Status (2026-10-30):** **v1.3.8** — versionCode 26, versionName `1.3.8`.
+- **Status (2026-10-30):** **v1.3.9** — versionCode 27, versionName `1.3.9`.
+  Export trio (Share/JPG/PDF) moved from tool headers to the bottom bar in both editions: native headers publish their trio bundle to the shell holder (equality-guarded SideEffect + guarded dispose; desktop windows get no holder, so their headers keep the trio); web has an identical bottom bar (header + FAB retired, hidden via CSS), a JS per-tab trio map (30/30 calls match the in-tab buttons), and in-tab trio buttons hidden in normal mode but shown inside desktop windows. Web main bottom padding pb-12 → pb-20 for bar clearance.
   Bottom-bar bottom padding 0dp (bar flush with the home circle bottom).
-  Bottom bar replaces the top GlobalHeader + floating Home button in the mobile shell (Scaffold bottomBar slot; 4 action icons left, home right with long-press quick switcher; bar hugs the home circle with 4dp vertical padding; old 88dp FAB clearance retired). Web edition keeps its top header pending a decision.
+  Bottom bar replaces the top GlobalHeader + floating Home button in the mobile shell (Scaffold bottomBar slot; 4 action icons left, home right with long-press quick switcher; bar hugs the home circle with 4dp vertical padding; old 88dp FAB clearance retired).
   Time Converter tracked rows gained a "Show converted time" switch
   (live clocks by default, persisted in toolbox_time_state): converted
   mode renders the entered HH:mm from the selected region into each

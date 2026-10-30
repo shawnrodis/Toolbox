@@ -44,7 +44,11 @@ The **web edition is a web app that can be used on Windows, Mac, and Linux**: it
 | Square Pic | Square any photo with a blur, color, or gradient fill, with lossless PNG export. |
 | Settings | Customize the theme and custom accent color, home-screen style, Desktop Mode, UI scale, sounds, API keys, and optional sync. |
 
-Most tools can share their results or export them as JPG or PDF from the buttons in the tool's header.
+Most tools can share their results or export them as JPG or PDF from the Share, JPG, and PDF buttons in the bottom bar (Desktop Mode windows keep them in the tool's header).
+
+## What's new in 1.3.9
+
+- **The Share / JPG / PDF trio moves to the bottom bar too, in both editions.** The ten tools that have the trio (Currency, Flight Tracker, Notes, PTO, Split, Tip, Tally, Shopping, Time, Unit Converter) now show it as three icon-only buttons in their source colours (green share, blue JPG, red PDF) between the chrome buttons and home, with the same tap behaviour. Tools without the trio keep today's bar unchanged. Desktop Mode windows keep the trio in the tool's header, since there's no bottom bar there — and the web edition follows the same design language 1:1: its top header and floating home button are retired in favour of an identical bottom bar (chrome, trio, home), with the in-tab trio buttons reappearing inside desktop windows.
 
 ## What's new in 1.3.8
 
@@ -98,14 +102,14 @@ The Android app requires Android 8.0 (API 26) or newer.
 
 ### Web (Windows, Mac, and Linux)
 
-1. **Download [Toolbox_v1.3.8.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.8/Toolbox_v1.3.8.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
+1. **Download [Toolbox_v1.3.9.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.9/Toolbox_v1.3.9.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
 2. Open `Toolbox.html` in any modern browser — double-clicking the file works.
 
 That's all: the web app is a single self-contained HTML file with no install and no build step. It can also be placed on any static hosting service.
 
 ## Versioning
 
-The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.8.apk` and `Toolbox_v1.3.8.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
+The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.9.apk` and `Toolbox_v1.3.9.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
 
 ## Updates
 

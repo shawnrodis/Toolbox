@@ -26,12 +26,16 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 /**
  * v1.3.7 — replaces the old top GlobalHeader AND the floating home
@@ -53,6 +57,13 @@ import androidx.compose.ui.unit.dp
  * every screen already titles itself in its content, and the brand's
  * tap-to-home is redundant with the home button. Desktop Mode is
  * untouched — DesktopShell never showed the header and shows no bar.
+ *
+ * v1.3.9 — the export trio joins the bar on tools that have one
+ * ([exportActions] non-null, published by the tool's header): three
+ * icon-only buttons in the trio's source colours, between the chrome
+ * group and home, invoking the same export functions with the same
+ * bundle the header used to pass. Tools without a trio get no trio
+ * row, so the bar is unchanged for them.
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -64,8 +75,11 @@ fun GlobalBottomBar(
     onOpenSettings: () -> Unit,
     onToggleSound: () -> Unit,
     onHome: () -> Unit,
-    onHomeLongPress: () -> Unit
+    onHomeLongPress: () -> Unit,
+    exportActions: ExportActions? = null
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -107,6 +121,41 @@ fun GlobalBottomBar(
                     onClick = onToggleSound
                 )
             }
+            if (exportActions != null) {
+                val actions = exportActions
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    BottomBarButton(
+                        icon = toolIconVector("fa-share-nodes")!!,
+                        contentDescription = "Share",
+                        tint = SHARE_GREEN,
+                        onClick = {
+                            scope.launch {
+                                toast(context, shareAsJpg(context, actions.fileBase, actions.prettyName, actions.exportHeader, actions.lines, actions.shareText))
+                            }
+                        }
+                    )
+                    BottomBarButton(
+                        icon = toolIconVector("fa-file-image")!!,
+                        contentDescription = "Export to JPG",
+                        tint = JPG_SKY,
+                        onClick = {
+                            scope.launch {
+                                toast(context, exportToJpg(context, actions.fileBase, actions.prettyName, actions.exportHeader, actions.lines))
+                            }
+                        }
+                    )
+                    BottomBarButton(
+                        icon = toolIconVector("fa-file-pdf")!!,
+                        contentDescription = "Export to PDF",
+                        tint = PDF_ROSE,
+                        onClick = {
+                            scope.launch {
+                                toast(context, exportToPdf(context, actions.fileBase, actions.prettyName, actions.exportHeader, actions.lines))
+                            }
+                        }
+                    )
+                }
+            }
             Spacer(modifier = Modifier.weight(1f))
             Box(
                 modifier = Modifier
@@ -135,7 +184,8 @@ fun GlobalBottomBar(
 private fun BottomBarButton(
     icon: ImageVector,
     contentDescription: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    tint: Color = MaterialTheme.colorScheme.onSurface
 ) {
     Box(
         contentAlignment = Alignment.Center,
@@ -149,7 +199,7 @@ private fun BottomBarButton(
         Icon(
             icon,
             contentDescription = contentDescription,
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = tint,
             modifier = Modifier.size(17.dp)
         )
     }

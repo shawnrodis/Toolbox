@@ -18,6 +18,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -143,9 +145,10 @@ private fun ToolHeaderRow(
 }
 
 // Source export-button colours (Tailwind emerald-500 / sky-500 / rose-500).
-private val SHARE_GREEN = Color(0xFF10B981)
-private val JPG_SKY = Color(0xFF0EA5E9)
-private val PDF_ROSE = Color(0xFFF43F5E)
+// Internal (not private): the bottom bar reuses them for its trio icons.
+internal val SHARE_GREEN = Color(0xFF10B981)
+internal val JPG_SKY = Color(0xFF0EA5E9)
+internal val PDF_ROSE = Color(0xFFF43F5E)
 
 /**
  * One small rounded-xl bordered header button (source classes:
@@ -197,6 +200,31 @@ fun ToolCardHeader(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // v1.3.9: on mobile the trio lives in the bottom bar, so the header
+    // publishes its export bundle to the shell's holder instead of
+    // rendering the trio buttons — and skips them below. The equality
+    // guard keeps a recomposition with identical values from writing
+    // state (and looping the shell); dispose clears only if the holder
+    // still holds this header's bundle, so a navigation transition
+    // never wipes the incoming tool's trio. Desktop windows get no
+    // holder, so they keep the trio in the header as before.
+    val exportHolder = LocalExportActionsHolder.current
+    val exportActions = if (fileBase != null) {
+        ExportActions(fileBase, prettyName, exportHeader, lines, shareText)
+    } else null
+    val showTrioInHeader = fileBase != null && exportHolder == null
+    if (exportHolder != null) {
+        SideEffect {
+            if (exportActions != null && exportHolder.current != exportActions) {
+                exportHolder.current = exportActions
+            }
+        }
+        DisposableEffect(exportActions) {
+            onDispose {
+                if (exportHolder.current == exportActions) exportHolder.current = null
+            }
+        }
+    }
     Column(modifier = modifier.fillMaxWidth()) {
         ToolHeaderRow(
             left = {
@@ -226,7 +254,7 @@ fun ToolCardHeader(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     leadingActions()
-                    if (fileBase != null) {
+                    if (showTrioInHeader) {
                         ToolHeaderButton(
                             icon = toolIconVector("fa-share-nodes")!!,
                             contentDescription = "Share",

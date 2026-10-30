@@ -58,7 +58,9 @@ import com.shawnrodis.toolbox.tools.TimeScreen
 import com.shawnrodis.toolbox.tools.TipScreen
 import com.shawnrodis.toolbox.tools.UnitConverterScreen
 import com.shawnrodis.toolbox.ui.DesktopShell
+import com.shawnrodis.toolbox.ui.ExportActionsHolder
 import com.shawnrodis.toolbox.ui.GlobalBottomBar
+import com.shawnrodis.toolbox.ui.LocalExportActionsHolder
 import com.shawnrodis.toolbox.ui.parsePins
 import com.shawnrodis.toolbox.ui.toolByRoute
 import com.shawnrodis.toolbox.ui.toast
@@ -216,6 +218,10 @@ fun ToolboxApp(store: AppStore, settings: AppSettings) {
     val backEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backEntry?.destination?.route
     var quickSwitcherOpen by remember { mutableStateOf(false) }
+    // v1.3.9: the shell's export-trio holder — tool headers publish
+    // their trio bundle here, the bottom bar reads it. Desktop windows
+    // never get the provider, so their headers keep the trio in place.
+    val exportHolder = remember { ExportActionsHolder() }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -279,10 +285,12 @@ fun ToolboxApp(store: AppStore, settings: AppSettings) {
                     // v1.2.1: long-press haptic (quick switcher).
                     ToolboxHaptics.longPressTick()
                     quickSwitcherOpen = true
-                }
+                },
+                exportActions = exportHolder.current
             )
         }
     ) { pad ->
+        CompositionLocalProvider(LocalExportActionsHolder provides exportHolder) {
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
@@ -309,6 +317,7 @@ fun ToolboxApp(store: AppStore, settings: AppSettings) {
             composable(Routes.PDFTOOLS) { PdfToolsScreen(store) { navController.popBackStack() } }
             composable(Routes.SQUAREPIC) { SquarePicScreen(store) { navController.popBackStack() } }
             composable(Routes.SETTINGS) { SettingsScreen(store) { navController.popBackStack() } }
+        }
         }
         }
     }
