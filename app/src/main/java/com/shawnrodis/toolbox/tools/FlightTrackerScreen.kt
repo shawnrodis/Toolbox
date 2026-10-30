@@ -1,6 +1,7 @@
 package com.shawnrodis.toolbox.tools
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +28,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -93,9 +95,14 @@ import java.util.Locale
  *    The source uses NO delay fields (verified: zero "delay" references
  *    in the SkyTrack code), so none are shown.
  *  - Times (source: new Date(x).toLocaleTimeString([], {hour:'2-digit',
- *    minute:'2-digit'})): departure time comes from departure.scheduled,
- *    arrival time from arrival.estimated, rendered in the device timezone
- *    as "hh:mm a"; anything missing/unparseable shows "--".
+ *    minute:'2-digit', hour12:false})): departure time comes from
+ *    departure.scheduled, arrival time from arrival.estimated, rendered in
+ *    the device timezone. A "24-hour time" toggle in the tool (on by
+ *    default, persisted in skytrack_mobile_state) switches the card, saved
+ *    rows, and share text between 24-hour "HH:mm" and 12-hour "hh:mm a";
+ *    anything missing/unparseable shows "--". The card's times each have a
+ *    Copy button that copies the time exactly as shown, for pasting into
+ *    time-conversion tools.
  *  - Saved flights + search history persist in DataStore under the
  *    source's own key, "skytrack_mobile_state", with the source's JSON
  *    shape {savedFlights: [flight…], searchHistory: [code…]}. History:
@@ -123,12 +130,14 @@ data class SkyFlight(
     val depTerminal: String,
     val depGate: String,
     val depTime: String,
+    val depIso: String = "",
     val arrIata: String,
     val arrName: String,
     val arrCity: String,
     val arrTerminal: String,
     val arrGate: String,
     val arrTime: String,
+    val arrIso: String = "",
     val statusInsight: String
 ) {
     fun toJson(): JSONObject = JSONObject()
@@ -137,8 +146,10 @@ data class SkyFlight(
         .put("aircraft", aircraft).put("progressPct", progressPct)
         .put("depIata", depIata).put("depName", depName).put("depCity", depCity)
         .put("depTerminal", depTerminal).put("depGate", depGate).put("depTime", depTime)
+        .put("depIso", depIso)
         .put("arrIata", arrIata).put("arrName", arrName).put("arrCity", arrCity)
         .put("arrTerminal", arrTerminal).put("arrGate", arrGate).put("arrTime", arrTime)
+        .put("arrIso", arrIso)
         .put("statusInsight", statusInsight)
 
     companion object {
@@ -149,9 +160,11 @@ data class SkyFlight(
             depIata = o.optString("depIata"), depName = o.optString("depName"),
             depCity = o.optString("depCity"), depTerminal = o.optString("depTerminal"),
             depGate = o.optString("depGate"), depTime = o.optString("depTime"),
+            depIso = o.optString("depIso"),
             arrIata = o.optString("arrIata"), arrName = o.optString("arrName"),
             arrCity = o.optString("arrCity"), arrTerminal = o.optString("arrTerminal"),
             arrGate = o.optString("arrGate"), arrTime = o.optString("arrTime"),
+            arrIso = o.optString("arrIso"),
             statusInsight = o.optString("statusInsight")
         )
     }
@@ -175,25 +188,40 @@ fun skyExtractCityName(endpoint: JSONObject?, fallbackCode: String): String {
     return fallbackCode
 }
 
-private val skyTimeFmt = DateTimeFormatter.ofPattern("hh:mm a", Locale.getDefault())
+private val skyTime24Fmt = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
+private val skyTime12Fmt = DateTimeFormatter.ofPattern("hh:mm a", Locale.getDefault())
 
-/** Source: new Date(iso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}). */
-fun formatSkyTime(iso: String?): String {
+/**
+ * Formats an Aviationstack ISO time in the device timezone. [use24h] selects
+ * 24-hour "HH:mm" (true) or 12-hour "hh:mm a" (false), matching the web tab's
+ * toLocaleTimeString with hour12:false / hour12:true respectively.
+ */
+fun formatSkyTime(iso: String?, use24h: Boolean = true): String {
     if (iso.isNullOrEmpty()) return "--"
+    val fmt = if (use24h) skyTime24Fmt else skyTime12Fmt
     return try {
-        OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.systemDefault()).format(skyTimeFmt)
+        OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.systemDefault()).format(fmt)
     } catch (e: Exception) {
         try {
-            Instant.parse(iso).atZone(ZoneId.systemDefault()).format(skyTimeFmt)
+            Instant.parse(iso).atZone(ZoneId.systemDefault()).format(fmt)
         } catch (e2: Exception) {
             try {
-                LocalDateTime.parse(iso).format(skyTimeFmt)
+                LocalDateTime.parse(iso).format(fmt)
             } catch (e3: Exception) {
                 "--"
             }
         }
     }
 }
+
+/**
+ * The time a flight row actually shows. Flights tracked before v1.3.1 have no
+ * stored ISO, so they fall back to the string saved at parse time until they
+ * are re-tracked; every flight tracked since carries its ISO and follows the
+ * toggle.
+ */
+fun skyDisplayTime(iso: String, stored: String, use24h: Boolean): String =
+    if (iso.isNotEmpty()) formatSkyTime(iso, use24h) else stored
 
 /** Maps one Aviationstack data[0] object to the card model, as skyFetchFlight does. */
 fun parseSkyFlight(cleanCode: String, raw: JSONObject): SkyFlight {
@@ -222,12 +250,14 @@ fun parseSkyFlight(cleanCode: String, raw: JSONObject): SkyFlight {
         depTerminal = dep.str("terminal") ?: "--",
         depGate = dep.str("gate") ?: "--",
         depTime = formatSkyTime(dep.str("scheduled")),
+        depIso = dep.str("scheduled") ?: "",
         arrIata = arrIata,
         arrName = arr.str("airport") ?: "Arrival Airport",
         arrCity = skyExtractCityName(arr, "N/A"),
         arrTerminal = arr.str("terminal") ?: "--",
         arrGate = arr.str("gate") ?: "--",
         arrTime = formatSkyTime(arr.str("estimated")),
+        arrIso = arr.str("estimated") ?: "",
         statusInsight = "Live Aviationstack Stream: $depIata -> $arrIata | " +
             "Gate ${dep.str("gate") ?: "--"} to Gate ${arr.str("gate") ?: "--"}."
     )
@@ -330,6 +360,12 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
             if (a != null) List(a.length()) { a.optString(it) }.filter { it.isNotEmpty() } else emptyList()
         } catch (e: Exception) { emptyList() }
     }
+    // 24-hour toggle, on by default; absent in pre-v1.3.1 state, hence optBoolean's default.
+    val use24h: Boolean = remember(stateJson) {
+        try {
+            JSONObject(stateJson.ifEmpty { "{}" }).optBoolean("use24h", true)
+        } catch (e: Exception) { true }
+    }
 
     var input by remember { mutableStateOf("") }
     var currentFlight by remember { mutableStateOf<SkyFlight?>(null) }
@@ -339,8 +375,8 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
     var statusIsError by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
-    /** skySaveState(): persists exactly {savedFlights, searchHistory}. */
-    fun saveState(saved: List<SkyFlight>, history: List<String>) {
+    /** skySaveState(): persists {savedFlights, searchHistory, use24h}. */
+    fun saveState(saved: List<SkyFlight>, history: List<String>, use24hValue: Boolean) {
         scope.launch {
             val flightsArr = JSONArray()
             saved.forEach { flightsArr.put(it.toJson()) }
@@ -348,7 +384,8 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
             history.forEach { histArr.put(it) }
             store.setStringState(
                 "skytrack_mobile_state",
-                JSONObject().put("savedFlights", flightsArr).put("searchHistory", histArr).toString()
+                JSONObject().put("savedFlights", flightsArr).put("searchHistory", histArr)
+                    .put("use24h", use24hValue).toString()
             )
         }
     }
@@ -364,7 +401,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                 }
                 currentFlight = flight
                 if (!searchHistory.contains(flight.flightIata)) {
-                    saveState(savedFlights, (listOf(flight.flightIata) + searchHistory).take(5))
+                    saveState(savedFlights, (listOf(flight.flightIata) + searchHistory).take(5), use24h)
                 }
                 statusMessage = "Loaded live data for ${flight.flightIata}"
                 statusIsError = false
@@ -405,12 +442,12 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                     "Flight ${current.flightIata} (${current.airlineName})",
                     "${current.depCity} (${current.depIata}) -> ${current.arrCity} (${current.arrIata})",
                     "Status: ${current.status}",
-                    "Scheduled: ${current.depTime} · Estimated: ${current.arrTime}"
+                    "Scheduled: ${skyDisplayTime(current.depIso, current.depTime, use24h)} · Estimated: ${skyDisplayTime(current.arrIso, current.arrTime, use24h)}"
                 ) else listOf("No flight loaded."),
                 shareText = if (current != null)
                     "Flight ${current.flightIata} (${current.airlineName}): " +
                         "${current.depCity} (${current.depIata}) -> ${current.arrCity} (${current.arrIata}). " +
-                        "Status: ${current.status}. Scheduled: ${current.depTime}."
+                        "Status: ${current.status}. Scheduled: ${skyDisplayTime(current.depIso, current.depTime, use24h)}."
                 else ""
             )
 
@@ -456,6 +493,22 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                 }
             }
 
+            // 24-hour toggle (v1.3.1): tool-scoped, persisted in skytrack_mobile_state.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+            ) {
+                Text(
+                    "24-hour time",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = use24h,
+                    onCheckedChange = { saveState(savedFlights, searchHistory, it) }
+                )
+            }
+
             statusMessage?.let { msg ->
                 Text(
                     msg,
@@ -485,7 +538,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                     }
                     TextButton(onClick = {
                         // skyClearRecents()
-                        saveState(savedFlights, emptyList())
+                        saveState(savedFlights, emptyList(), use24h)
                         toast(context, "Cleared search history")
                     }) { Text("Clear") }
                 }
@@ -508,11 +561,11 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                         if (currentIsSaved) {
                             saveState(
                                 savedFlights.filterNot { it.flightIata == current.flightIata },
-                                searchHistory
+                                searchHistory, use24h
                             )
                             toast(context, "Removed ${current.flightIata}")
                         } else {
-                            saveState(savedFlights + current, searchHistory)
+                            saveState(savedFlights + current, searchHistory, use24h)
                             toast(context, "Saved flight ${current.flightIata}")
                         }
                     }) { Text(if (currentIsSaved) "Saved" else "Save") }
@@ -521,7 +574,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                         val f = current
                         val summary = "Flight ${f.flightIata} (${f.airlineName}): " +
                             "${f.depCity} (${f.depIata}) -> ${f.arrCity} (${f.arrIata}). " +
-                            "Status: ${f.status}. Scheduled: ${f.depTime}."
+                            "Status: ${f.status}. Scheduled: ${skyDisplayTime(f.depIso, f.depTime, use24h)}."
                         copyToClipboard(context, summary, "Summary copied to clipboard!")
                     }) { Text("Share") }
                 }
@@ -595,13 +648,17 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                             title = "Departure",
                             iata = current.depIata, name = current.depName, city = current.depCity,
                             terminal = current.depTerminal, gate = current.depGate,
-                            timeLabel = "Scheduled", time = current.depTime
+                            timeLabel = "Scheduled",
+                            time = skyDisplayTime(current.depIso, current.depTime, use24h),
+                            onCopyTime = { copyToClipboard(context, it, "Departure time copied to clipboard!") }
                         )
                         SkyEndpointBlock(
                             title = "Arrival",
                             iata = current.arrIata, name = current.arrName, city = current.arrCity,
                             terminal = current.arrTerminal, gate = current.arrGate,
-                            timeLabel = "Estimated", time = current.arrTime
+                            timeLabel = "Estimated",
+                            time = skyDisplayTime(current.arrIso, current.arrTime, use24h),
+                            onCopyTime = { copyToClipboard(context, it, "Arrival time copied to clipboard!") }
                         )
 
                         Text(
@@ -643,7 +700,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                                     saved
                                 }
                             }
-                            saveState(updated, searchHistory)
+                            saveState(updated, searchHistory, use24h)
                             refreshing = false
                             toast(context, "Refreshed saved flights")
                         }
@@ -702,7 +759,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                                 ) {
                                     Column {
                                         Text(flight.depIata, fontWeight = FontWeight.Black, style = MaterialTheme.typography.bodyMedium)
-                                        Text(flight.depTime, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(skyDisplayTime(flight.depIso, flight.depTime, use24h), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     LinearProgressIndicator(
                                         progress = { flight.progressPct / 100f },
@@ -710,7 +767,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                                     )
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(flight.arrIata, fontWeight = FontWeight.Black, style = MaterialTheme.typography.bodyMedium)
-                                        Text(flight.arrTime, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(skyDisplayTime(flight.arrIso, flight.arrTime, use24h), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                                 Row(
@@ -726,7 +783,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                                         // skyRemoveSavedFlight
                                         saveState(
                                             savedFlights.filterNot { it.flightIata == flight.flightIata },
-                                            searchHistory
+                                            searchHistory, use24h
                                         )
                                         toast(context, "Removed ${flight.flightIata}")
                                     }) { Text("Remove") }
@@ -748,7 +805,8 @@ private fun SkyEndpointBlock(
     terminal: String,
     gate: String,
     timeLabel: String,
-    time: String
+    time: String,
+    onCopyTime: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = 14.dp)) {
         Row(
@@ -778,6 +836,12 @@ private fun SkyEndpointBlock(
             Column(horizontalAlignment = Alignment.End) {
                 Text(timeLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(time, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                if (time != "--") {
+                    TextButton(
+                        onClick = { onCopyTime(time) },
+                        contentPadding = PaddingValues(0.dp)
+                    ) { Text("Copy", style = MaterialTheme.typography.labelSmall) }
+                }
             }
         }
     }

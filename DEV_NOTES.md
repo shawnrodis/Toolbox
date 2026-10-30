@@ -5,6 +5,12 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
+- **Status (2026-10-30):** **v1.3.1** — versionCode 19, versionName `1.3.1`.
+  Flight Tracker: tool-scoped "24-hour time" toggle (on by default, persisted
+  in skytrack_mobile_state; ISO times now stored per flight so the card, saved
+  rows, and share text all follow the toggle; pre-v1.3.1 saves fall back to
+  their stored string until re-tracked) + Copy buttons on the card's times
+  (copy the time exactly as shown) in both editions.
 - **Status (2026-10-24):** **v1.3.0** — versionCode 18, versionName `1.3.0`.
   PDF Tools' LOCAL OCR engine is now true **PaddleOCR in BOTH editions**
   (the Gemini "ai" engine is untouched, behaviour-identical):

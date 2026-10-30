@@ -1,6 +1,8 @@
 package com.shawnrodis.toolbox
 
+import com.shawnrodis.toolbox.tools.formatSkyTime
 import com.shawnrodis.toolbox.tools.parseSkyFlight
+import com.shawnrodis.toolbox.tools.skyDisplayTime
 import com.shawnrodis.toolbox.tools.skyExtractCityName
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -63,13 +65,26 @@ class SkyFlightParserTest {
         assertEquals("Los Angeles", f.arrCity)
         assertEquals("4", f.arrTerminal)
         assertEquals("52B", f.arrGate)
-        // Times are rendered (device-local "hh:mm a"), never the raw ISO string.
+        // Times are rendered in 24-hour "HH:mm" (device-local), never the raw ISO string.
         assertTrue(f.depTime.contains(":") && f.depTime != "--")
         assertTrue(f.arrTime.contains(":") && f.arrTime != "--")
+        assertTrue(Regex("^\\d{2}:\\d{2}$").matches(f.depTime))
+        assertTrue(Regex("^\\d{2}:\\d{2}$").matches(f.arrTime))
         assertEquals(
             "Live Aviationstack Stream: JFK -> LAX | Gate 12 to Gate 52B.",
             f.statusInsight
         )
+    }
+
+    @Test
+    fun timeFormatFollowsToggleAndFallsBackForLegacySaves() {
+        val iso = "2026-10-30T19:50:00+08:00"
+        assertTrue(Regex("^\\d{2}:\\d{2}$").matches(formatSkyTime(iso, true)))
+        assertTrue(Regex("^\\d{1,2}:\\d{2} [AP]M$").matches(formatSkyTime(iso, false)))
+        assertEquals("--", formatSkyTime(null, true))
+        // Pre-v1.3.1 saves carry no ISO: the stored string shows until re-tracked.
+        assertEquals("07:50 PM", skyDisplayTime("", "07:50 PM", true))
+        assertTrue(Regex("^\\d{2}:\\d{2}$").matches(skyDisplayTime(iso, "07:50 PM", true)))
     }
 
     @Test
