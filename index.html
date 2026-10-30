@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.4 -->
+<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.5 -->
 <html lang="en" id="html-root" class="h-full w-full dark black selection:bg-indigo-500 selection:text-white overflow-x-hidden" data-accent="indigo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Toolbox (Shawn Rodis)</title>
-    <meta name="version" content="1.3.4">
+    <meta name="version" content="1.3.5">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -909,15 +909,12 @@
                         <button onclick="exportToolToPDF('tab-time','time-converter','Time converter')" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Export to PDF">
                             <i class="fa-solid fa-file-pdf text-xs text-rose-500"></i>
                         </button>
-                        <button onclick="setCurrentTime()" class="p-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs flex items-center gap-1 border border-slate-200 dark:border-zinc-800" title="Use Current Time">
-                            <i class="fa-solid fa-clock text-xs"></i> Current
-                        </button>
                     </div>
                 </div>
 
                 <div class="mt-4 space-y-3">
                     <div class="space-y-1.5">
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-zinc-400">12-Hour Time & Time Zone / Country</label>
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-zinc-400">Time 1 — 12-Hour Time & Time Zone / Country</label>
                         <div class="grid grid-cols-12 gap-2">
                             <div class="col-span-7">
                                 <input type="time" id="time-12-input" oninput="convertTimeFrom12()" class="w-full px-3 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-slate-900 dark:text-white">
@@ -934,6 +931,11 @@
                         <input type="text" id="time-24-input" placeholder="e.g. 14:30" oninput="convertTimeFrom24()" class="w-full px-3.5 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-slate-900 dark:text-white">
                     </div>
 
+                    <div class="flex gap-2">
+                        <button onclick="setCurrentTime(false, '')" class="px-3 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs font-bold border border-slate-200 dark:border-zinc-800" title="Use Current Time">Current</button>
+                        <button onclick="addCurrentZoneToTracked('')" class="px-3 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs font-bold border border-slate-200 dark:border-zinc-800">Track zone</button>
+                    </div>
+
                     <div class="bg-slate-50 dark:bg-zinc-950/80 rounded-xl p-3.5 border border-slate-200 dark:border-zinc-900 space-y-1.5 text-xs">
                         <div class="flex justify-between items-center">
                             <span class="font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">Formatted 12h:</span>
@@ -947,6 +949,50 @@
                             <span class="font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">Selected Region:</span>
                             <span id="display-region-info" class="text-slate-600 dark:text-zinc-400 text-[11px]">-</span>
                         </div>
+                    </div>
+
+                    <div class="space-y-1.5 pt-2">
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-zinc-400">Time 2 — 12-Hour Time & Time Zone / Country</label>
+                        <div class="grid grid-cols-12 gap-2">
+                            <div class="col-span-7">
+                                <input type="time" id="time-12-input-2" oninput="convertTimeFrom12('2')" class="w-full px-3 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-slate-900 dark:text-white">
+                            </div>
+                            <div class="col-span-5">
+                                <select id="time-zone-select-2" onchange="onTimeZoneSelected('2')" class="w-full px-2.5 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-slate-900 dark:text-white truncate">
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5 pt-1">
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-zinc-400">24-Hour Time (HH:MM)</label>
+                        <input type="text" id="time-24-input-2" placeholder="e.g. 14:30" oninput="convertTimeFrom24('2')" class="w-full px-3.5 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-slate-900 dark:text-white">
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button onclick="setCurrentTime(false, '2')" class="px-3 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs font-bold border border-slate-200 dark:border-zinc-800" title="Use Current Time">Current</button>
+                        <button onclick="addCurrentZoneToTracked('2')" class="px-3 py-2 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-xs font-bold border border-slate-200 dark:border-zinc-800">Track zone</button>
+                    </div>
+
+                    <div class="bg-slate-50 dark:bg-zinc-950/80 rounded-xl p-3.5 border border-slate-200 dark:border-zinc-900 space-y-1.5 text-xs">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">Formatted 12h:</span>
+                            <span id="display-result-12-2" class="font-bold text-slate-800 dark:text-zinc-200">-</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">Formatted 24h:</span>
+                            <span id="display-result-24-2" class="font-bold accent-text text-sm">-</span>
+                        </div>
+                        <div class="flex justify-between items-center pt-1 border-t border-slate-200 dark:border-zinc-900">
+                            <span class="font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">Selected Region:</span>
+                            <span id="display-region-info-2" class="text-slate-600 dark:text-zinc-400 text-[11px]">-</span>
+                        </div>
+                    </div>
+
+                    <button onclick="compareTimes()" class="w-full py-2.5 bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 active:scale-95 text-slate-700 dark:text-zinc-300 rounded-xl text-sm font-bold border border-slate-200 dark:border-zinc-800">Compare times</button>
+
+                    <div id="compare-result" class="bg-slate-50 dark:bg-zinc-950/80 rounded-xl p-3.5 border border-slate-200 dark:border-zinc-900 space-y-1.5 text-xs">
+                        <div class="text-slate-400">Tap Compare times to save a comparison.</div>
                     </div>
                 </div>
             </div>
@@ -962,7 +1008,7 @@
                 </div>
                 <label class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400 cursor-pointer">
                     <input type="checkbox" id="tracked-mode-toggle" class="accent-emerald-500" onchange="setTrackedMode(this.checked)">
-                    Show converted time
+                    Show converted time from Time 1
                 </label>
                 <div id="tracked-times-container" class="space-y-2">
                     <div class="text-center py-4 text-xs text-slate-400 dark:text-zinc-500">No country time zones tracked yet. Select a country above to add it to tracking.</div>
@@ -1721,7 +1767,7 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-xs text-slate-900 dark:text-white">App Updates</h3>
-                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.4</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
+                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.5</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
@@ -1733,7 +1779,7 @@
                     </div>
                 </div>
             </div>
-            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.4 · by Shawn Rodis</div>
+            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.5 · by Shawn Rodis</div>
         </section>
 
 <section id="tab-skytrack" class="tab-content space-y-4 hidden relative">
@@ -2814,20 +2860,23 @@
             baseSelect.value = 'USD';
             targetSelect.value = 'PHP';
 
-            const tzSelect = document.getElementById('time-zone-select');
-            tzSelect.innerHTML = '';
-            WORLD_TIME_ZONES.forEach(tz => {
-                const opt = document.createElement('option');
-                opt.value = tz.zone;
-                opt.textContent = tz.label;
-                tzSelect.appendChild(opt);
+            ['time-zone-select', 'time-zone-select-2'].forEach(id => {
+                const sel = document.getElementById(id);
+                sel.innerHTML = '';
+                WORLD_TIME_ZONES.forEach(tz => {
+                    const opt = document.createElement('option');
+                    opt.value = tz.zone;
+                    opt.textContent = tz.label;
+                    sel.appendChild(opt);
+                });
             });
-            tzSelect.value = 'America/New_York';
+            document.getElementById('time-zone-select').value = 'America/New_York';
+            document.getElementById('time-zone-select-2').value = 'Asia/Qatar';
 
             // Restore persisted editable-field state (currency, time, meme text).
             restoreCurrencyState();
             convertCurrency('base');
-            if (restoreTimeState()) convertTimeFrom12();
+            if (restoreTimeState()) { convertTimeFrom12(); convertTimeFrom12('2'); }
             restoreSplitState();
             calculateSplitExpense();
             restoreTipState();
@@ -4165,36 +4214,42 @@
         }
 
         // --- TIME CONVERTER ---
-        function setCurrentTime(quiet) {
+        // Two rows (Time 1 / Time 2), each with its own 12h input, zone
+        // picker and 24h field. Row 1 keeps the unsuffixed ids; row 2 uses
+        // the '2' suffix. Converted tracked rows convert from Time 1.
+        function setCurrentTime(quiet, suffix) {
+            suffix = suffix || '';
             const now = new Date();
-            const tz = document.getElementById('time-zone-select').value;
-            
+            const tz = document.getElementById('time-zone-select' + suffix).value;
+
             const options = { timeZone: tz, hour12: false, hour: '2-digit', minute: '2-digit' };
             const time24Str = new Intl.DateTimeFormat('en-GB', options).format(now);
-            
-            document.getElementById('time-24-input').value = time24Str;
-            convertTimeFrom24();
+
+            document.getElementById('time-24-input' + suffix).value = time24Str;
+            convertTimeFrom24(suffix);
             if (!quiet) showToast('Loaded current regional time.');
         }
 
-        function onTimeZoneSelected() {
-            convertTimeFrom12();
-            addCurrentZoneToTracked();
+        function onTimeZoneSelected(suffix) {
+            suffix = suffix || '';
+            convertTimeFrom12(suffix);
             saveTimeState();
         }
 
-        function convertTimeFrom12() {
-            const timeVal = document.getElementById('time-12-input').value;
+        function convertTimeFrom12(suffix) {
+            suffix = suffix || '';
+            const timeVal = document.getElementById('time-12-input' + suffix).value;
             if (!timeVal) return;
 
             let [hours, minutes] = timeVal.split(':').map(Number);
             const time24 = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-            document.getElementById('time-24-input').value = time24;
-            updateTimeDisplays(hours, minutes, time24);
+            document.getElementById('time-24-input' + suffix).value = time24;
+            updateTimeDisplays(hours, minutes, time24, suffix);
         }
 
-        function convertTimeFrom24() {
-            const val = document.getElementById('time-24-input').value.trim();
+        function convertTimeFrom24(suffix) {
+            suffix = suffix || '';
+            const val = document.getElementById('time-24-input' + suffix).value.trim();
             if (!val.includes(':')) return;
             const [hStr, mStr] = val.split(':');
             const hours = parseInt(hStr, 10);
@@ -4203,35 +4258,43 @@
             if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return;
 
             const time12Str = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-            document.getElementById('time-12-input').value = time12Str;
+            document.getElementById('time-12-input' + suffix).value = time12Str;
 
-            updateTimeDisplays(hours, minutes, val);
+            updateTimeDisplays(hours, minutes, val, suffix);
         }
 
-        function updateTimeDisplays(hours, minutes, time24) {
+        function updateTimeDisplays(hours, minutes, time24, suffix) {
+            suffix = suffix || '';
             const ampm = hours >= 12 ? 'PM' : 'AM';
             let h12 = hours % 12;
             if (h12 === 0) h12 = 12;
             const formatted12 = `${String(h12).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${ampm}`;
 
-            document.getElementById('display-result-12').textContent = formatted12;
-            document.getElementById('display-result-24').textContent = `${time24} (24-Hour)`;
+            document.getElementById('display-result-12' + suffix).textContent = formatted12;
+            document.getElementById('display-result-24' + suffix).textContent = `${time24} (24-Hour)`;
 
-            const tz = document.getElementById('time-zone-select').value;
+            const tz = document.getElementById('time-zone-select' + suffix).value;
             const tzObj = WORLD_TIME_ZONES.find(t => t.zone === tz);
-            document.getElementById('display-region-info').textContent = tzObj ? tzObj.label : tz;
+            document.getElementById('display-region-info' + suffix).textContent = tzObj ? tzObj.label : tz;
             saveTimeState();
             // Converted rows follow the entered time as it changes.
             if (document.getElementById('tracked-times-container')) renderTrackedTimes();
         }
 
         // Persist the time converter's editable fields so they sync across devices.
+        // Row 1 keeps the legacy keys; row 2 and the saved comparison are new.
+        let savedCompareA = null, savedCompareB = null;
         function saveTimeState() {
             try {
                 localStorage.setItem('toolbox_time_state', JSON.stringify({
                     zone: document.getElementById('time-zone-select').value,
                     time12: document.getElementById('time-12-input').value,
                     time24: document.getElementById('time-24-input').value,
+                    zone2: document.getElementById('time-zone-select-2').value,
+                    time12_2: document.getElementById('time-12-input-2').value,
+                    time24_2: document.getElementById('time-24-input-2').value,
+                    compareA: savedCompareA,
+                    compareB: savedCompareB,
                     mode: trackedMode
                 }));
             } catch (e) { /* storage unavailable */ }
@@ -4243,17 +4306,24 @@
                 if (s.zone) document.getElementById('time-zone-select').value = s.zone;
                 if (s.time12 !== undefined && s.time12 !== null) document.getElementById('time-12-input').value = s.time12;
                 if (s.time24 !== undefined && s.time24 !== null) document.getElementById('time-24-input').value = s.time24;
+                if (s.zone2) document.getElementById('time-zone-select-2').value = s.zone2;
+                if (s.time12_2 !== undefined && s.time12_2 !== null) document.getElementById('time-12-input-2').value = s.time12_2;
+                if (s.time24_2 !== undefined && s.time24_2 !== null) document.getElementById('time-24-input-2').value = s.time24_2;
+                if (s.compareA) savedCompareA = s.compareA;
+                if (s.compareB) savedCompareB = s.compareB;
                 if (s.mode === 'live' || s.mode === 'converted') {
                     trackedMode = s.mode;
                     const t = document.getElementById('tracked-mode-toggle');
                     if (t) t.checked = trackedMode === 'converted';
                 }
+                renderCompare();
                 return true;
             } catch (e) { return false; }
         }
 
-        function addCurrentZoneToTracked() {
-            const tz = document.getElementById('time-zone-select').value;
+        function addCurrentZoneToTracked(suffix) {
+            suffix = suffix || '';
+            const tz = document.getElementById('time-zone-select' + suffix).value;
             const tzObj = WORLD_TIME_ZONES.find(t => t.zone === tz);
             if (!tzObj) return;
 
@@ -4263,6 +4333,63 @@
                 renderTrackedTimes();
                 showToast(`Added ${tzObj.country} to tracked times.`);
             }
+        }
+
+        function formatTime12(time24) {
+            const m = /^(\d{1,2}):(\d{2})$/.exec((time24 || '').trim());
+            if (!m) return '--:--';
+            let h = parseInt(m[1], 10); const mm = parseInt(m[2], 10);
+            if (h > 23 || mm > 59) return '--:--';
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            let h12 = h % 12; if (h12 === 0) h12 = 12;
+            return `${String(h12).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${ampm}`;
+        }
+
+        // Saves the current pair and shows each entered time converted into
+        // the other row's zone (with a day-shift note when it crosses
+        // midnight), plus the offset between the zones.
+        function compareTimes() {
+            savedCompareA = { time24: document.getElementById('time-24-input').value, zone: document.getElementById('time-zone-select').value };
+            savedCompareB = { time24: document.getElementById('time-24-input-2').value, zone: document.getElementById('time-zone-select-2').value };
+            saveTimeState();
+            renderCompare();
+            showToast('Comparison saved.');
+        }
+        function renderCompare() {
+            const card = document.getElementById('compare-result');
+            if (!card) return;
+            if (!savedCompareA || !savedCompareB) {
+                card.innerHTML = `<div class="text-slate-400">Tap Compare times to save a comparison.</div>`;
+                return;
+            }
+            const label = z => { const o = WORLD_TIME_ZONES.find(t => t.zone === z); return o ? o.label : z; };
+            const suffix = s => s === 1 ? ' (next day)' : s === -1 ? ' (previous day)' : s > 0 ? ` (${s} days later)` : s < 0 ? ` (${-s} days earlier)` : '';
+            const aToB = convertTrackedTimeFull(savedCompareA.time24, savedCompareA.zone, savedCompareB.zone);
+            const bToA = convertTrackedTimeFull(savedCompareB.time24, savedCompareB.zone, savedCompareA.zone);
+            const lines = [
+                `${formatTime12(savedCompareA.time24)} ${label(savedCompareA.zone)} = ${aToB.text} ${label(savedCompareB.zone)}${suffix(aToB.dayShift)}`,
+                `${formatTime12(savedCompareB.time24)} ${label(savedCompareB.zone)} = ${bToA.text} ${label(savedCompareA.zone)}${suffix(bToA.dayShift)}`
+            ];
+            if (aToB.utc !== null) {
+                const off = zoneOffsetLine(savedCompareA.zone, savedCompareB.zone, aToB.utc);
+                if (off) lines.push(off);
+            }
+            card.innerHTML = lines.map(l => `<div class="font-bold text-slate-800 dark:text-zinc-200">${l}</div>`).join('');
+        }
+
+        function zoneOffsetLine(zoneA, zoneB, utcMs) {
+            try {
+                const diff = tzOffsetMinutes(zoneA, utcMs) - tzOffsetMinutes(zoneB, utcMs);
+                const city = z => z.split('/').pop().replace(/_/g, ' ');
+                if (diff === 0) return `${city(zoneA)} and ${city(zoneB)} share the same offset at this time`;
+                const abs = Math.abs(diff);
+                const h = Math.floor(abs / 60), m = abs % 60;
+                let amount = `${h} hour${h === 1 ? '' : 's'}`;
+                if (m) amount += ` ${m} minute${m === 1 ? '' : 's'}`;
+                return diff > 0
+                    ? `${city(zoneA)} is ${amount} ahead of ${city(zoneB)}`
+                    : `${city(zoneB)} is ${amount} ahead of ${city(zoneA)}`;
+            } catch (e) { return null; }
         }
 
         function setTrackedMode(converted) {
@@ -4283,21 +4410,31 @@
 
         // Converts an entered HH:MM time-of-day from fromZone to toZone,
         // using today's date in the source zone. Unparseable input -> '--:--'.
-        function convertTrackedTime(time24, fromZone, toZone) {
+        // Rich version: rendered text, day shift vs the source date, and the
+        // resolved UTC instant (for offset lines).
+        function convertTrackedTimeFull(time24, fromZone, toZone) {
             const m = /^(\d{1,2}):(\d{2})$/.exec((time24 || '').trim());
-            if (!m) return '--:--';
+            if (!m) return { text: '--:--', dayShift: 0, utc: null };
             const hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
-            if (hh > 23 || mm > 59) return '--:--';
+            if (hh > 23 || mm > 59) return { text: '--:--', dayShift: 0, utc: null };
             try {
-                const parts = new Intl.DateTimeFormat('en-US', { timeZone: fromZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
-                const get = t => parseInt(parts.find(p => p.type === t).value, 10);
-                const guess = Date.UTC(get('year'), get('month') - 1, get('day'), hh, mm);
+                const srcParts = new Intl.DateTimeFormat('en-US', { timeZone: fromZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+                const get = t => parseInt(srcParts.find(p => p.type === t).value, 10);
+                const sy = get('year'), sm = get('month'), sd = get('day');
+                const guess = Date.UTC(sy, sm - 1, sd, hh, mm);
                 const off1 = tzOffsetMinutes(fromZone, guess);
                 let utc = guess - off1 * 60000;
                 const off2 = tzOffsetMinutes(fromZone, utc);
                 if (off2 !== off1) utc = guess - off2 * 60000;
-                return new Intl.DateTimeFormat('en-US', { timeZone: toZone, hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(utc));
-            } catch (e) { return '--:--'; }
+                const dstParts = new Intl.DateTimeFormat('en-US', { timeZone: toZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(utc));
+                const dget = t => parseInt(dstParts.find(p => p.type === t).value, 10);
+                const dayShift = Math.round((Date.UTC(dget('year'), dget('month') - 1, dget('day')) - Date.UTC(sy, sm - 1, sd)) / 86400000);
+                const text = new Intl.DateTimeFormat('en-US', { timeZone: toZone, hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(utc));
+                return { text, dayShift, utc };
+            } catch (e) { return { text: '--:--', dayShift: 0, utc: null }; }
+        }
+        function convertTrackedTime(time24, fromZone, toZone) {
+            return convertTrackedTimeFull(time24, fromZone, toZone).text;
         }
 
         function renderTrackedTimes() {
@@ -4305,7 +4442,7 @@
             document.getElementById('tracked-count').textContent = trackedTimesList.length;
 
             if (trackedTimesList.length === 0) {
-                container.innerHTML = `<div class="text-center py-4 text-xs text-slate-400 dark:text-zinc-500">No country time zones tracked yet. Select a country above to add it to tracking.</div>`;
+                container.innerHTML = `<div class="text-center py-4 text-xs text-slate-400 dark:text-zinc-500">No country time zones tracked yet. Use a row's Track zone button to add it to tracking.</div>`;
                 return;
             }
 
@@ -5153,10 +5290,16 @@
                 if (fileBase === 'time-converter') {
                     const t12 = document.getElementById('time-12-input'), t24 = document.getElementById('time-24-input');
                     const tz = document.getElementById('time-zone-select');
+                    const t12b = document.getElementById('time-12-input-2'), t24b = document.getElementById('time-24-input-2');
+                    const tzb = document.getElementById('time-zone-select-2');
                     const parts = [];
                     if (t12 && t12.value) parts.push(t12.value);
                     if (t24 && t24.value) parts.push(t24.value);
-                    if (parts.length) return 'Time conversion: ' + parts.join(' = ') + (tz && tz.value ? ' [' + tz.value + ']' : '');
+                    if (parts.length) {
+                        let out = 'Time conversion: ' + parts.join(' = ') + (tz && tz.value ? ' [' + tz.value + ']' : '');
+                        if (t24b && t24b.value) out += ' vs ' + t24b.value + (tzb && tzb.value ? ' [' + tzb.value + ']' : '');
+                        return out;
+                    }
                 }
                 if (fileBase === 'flight-tracker' && typeof skyState !== 'undefined' && skyState.currentFlight) {
                     const f = skyState.currentFlight;
