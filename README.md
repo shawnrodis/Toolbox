@@ -46,6 +46,10 @@ The **web edition is a web app that can be used on Windows, Mac, and Linux**: it
 
 Most tools can share their results or export them as JPG or PDF from the buttons in the tool's header.
 
+## What's new in 1.3.8
+
+- **Bottom bar, tightened at the bottom too.** The bar's bottom padding is now 0dp, so its bottom edge sits flush with the home circle's bottom — only the system navigation area remains below it. (Top padding stays 4dp above the circle.)
+
 ## What's new in 1.3.7
 
 - **The top bar is gone — the app's chrome now lives in a bottom bar.** The old header (brand, tool name, "Toolbox Utility") and the floating home button are retired: content starts right under the status bar, and a single bar across the bottom holds the fullscreen, desktop-mode, settings, and sound buttons on the left with the home button at the far right. Tap goes home, long-press still opens the quick switcher, and the bar is tight — just 4dp of padding above the home circle. Content is padded above the bar, so nothing ever slides underneath it. Desktop Mode is untouched. Note: the web edition keeps its top header for now — say the word if you want it moved down there too.
@@ -94,14 +98,14 @@ The Android app requires Android 8.0 (API 26) or newer.
 
 ### Web (Windows, Mac, and Linux)
 
-1. **Download [Toolbox_v1.3.7.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.7/Toolbox_v1.3.7.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
+1. **Download [Toolbox_v1.3.8.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.8/Toolbox_v1.3.8.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
 2. Open `Toolbox.html` in any modern browser — double-clicking the file works.
 
 That's all: the web app is a single self-contained HTML file with no install and no build step. It can also be placed on any static hosting service.
 
 ## Versioning
 
-The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.7.apk` and `Toolbox_v1.3.7.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
+The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.8.apk` and `Toolbox_v1.3.8.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
 
 ## Updates
 

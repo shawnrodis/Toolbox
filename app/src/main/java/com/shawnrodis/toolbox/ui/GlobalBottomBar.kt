@@ -76,10 +76,14 @@ fun GlobalBottomBar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                // v1.3.7: tight 4dp vertical padding so the bar hugs the
+                // v1.3.7: tight 4dp top padding so the bar hugs the
                 // 52dp home circle — its top edge sits just above the
-                // circle instead of floating in a tall bar.
-                .padding(horizontal = 12.dp, vertical = 4.dp)
+                // circle instead of floating in a tall bar. v1.3.8:
+                // bottom padding is 0dp, so the bar's bottom edge sits
+                // flush with the circle's bottom too; only the system
+                // navigation inset remains below the bar.
+                .padding(horizontal = 12.dp)
+                .padding(top = 4.dp)
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 BottomBarButton(
