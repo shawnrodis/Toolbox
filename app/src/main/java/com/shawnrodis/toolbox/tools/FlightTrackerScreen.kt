@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -116,7 +117,7 @@ import kotlin.math.roundToInt
  *  - Saved flights + search history persist in DataStore under the
  *    source's own key, "skytrack_mobile_state", with the source's JSON
  *    shape {savedFlights: [flight…], searchHistory: [code…]}. History:
- *    on success only, unshift if new, capped at 5 (skyExecuteSearch).
+ *    on success only, unshift if new, capped at 3 (skyExecuteSearch).
  *    Save toggles a bookmark (skyInitTab handler); Share copies the
  *    source's summary sentence to the clipboard; "Refresh" re-fetches
  *    every saved flight in order, keeping the old snapshot on error
@@ -331,6 +332,12 @@ fun skyFlightProgress(flight: SkyFlight, nowMs: Long = System.currentTimeMillis(
     skyFlightProgressExact(flight, nowMs).roundToInt()
 
 /** Maps one Aviationstack data[0] object to the card model, as skyFetchFlight does. */
+/** skyAddSearchHistory(): recents are capped at 3 (v1.3.16). A duplicate
+ *  re-search leaves the order untouched; a new code goes first and the
+ *  oldest drops off. Shared by direct search and the candidate picker. */
+fun skyAddSearchHistory(history: List<String>, code: String): List<String> =
+    if (history.contains(code)) history else (listOf(code) + history).take(3)
+
 fun parseSkyFlight(cleanCode: String, raw: JSONObject): SkyFlight {
     val statusLower = (raw.str("flight_status") ?: "scheduled").lowercase(Locale.US)
     val dep = raw.optJSONObject("departure")
@@ -542,7 +549,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
     val searchHistory: List<String> = remember(stateJson) {
         try {
             val a = JSONObject(stateJson.ifEmpty { "{}" }).optJSONArray("searchHistory")
-            if (a != null) List(a.length()) { a.optString(it) }.filter { it.isNotEmpty() } else emptyList()
+            if (a != null) List(a.length()) { a.optString(it) }.filter { it.isNotEmpty() }.take(3) else emptyList()
         } catch (e: Exception) { emptyList() }
     }
     // 24-hour toggle, on by default; absent in pre-v1.3.1 state, hence optBoolean's default.
@@ -610,7 +617,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                         val flight = result.flight
                         currentFlight = flight
                         if (!searchHistory.contains(flight.flightIata)) {
-                            saveState(savedFlights, (listOf(flight.flightIata) + searchHistory).take(5), use24h)
+                            saveState(savedFlights, skyAddSearchHistory(searchHistory, flight.flightIata), use24h)
                         }
                         statusMessage = "Loaded live data for ${flight.flightIata}"
                         statusIsError = false
@@ -639,7 +646,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
         candidates = null
         currentFlight = flight
         if (!searchHistory.contains(flight.flightIata)) {
-            saveState(savedFlights, (listOf(flight.flightIata) + searchHistory).take(5), use24h)
+            saveState(savedFlights, skyAddSearchHistory(searchHistory, flight.flightIata), use24h)
         }
         statusMessage = "Loaded live data for ${flight.flightIata}"
         statusIsError = false
@@ -867,11 +874,14 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                 }
             }
 
-            // Recent searches (skyRenderSearchHistory)
+            // Recent searches (skyRenderSearchHistory). Horizontally
+            // scrollable (v1.3.16): a plain Row squeezed the last chip into
+            // a tall strip and pushed Clear off-screen once 4+ recents piled
+            // up. With the cap at 3 it usually fits; scroll is the safety net.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(top = 14.dp)
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 14.dp)
             ) {
                 Text("Recent:", style = MaterialTheme.typography.titleSmall)
                 if (searchHistory.isEmpty()) {

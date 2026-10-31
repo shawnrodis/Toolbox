@@ -46,6 +46,10 @@ The **web edition is a web app that can be used on Windows, Mac, and Linux**: it
 
 Most tools can share their results or export them as JPG or PDF from the Share, JPG, and PDF buttons in the bottom bar (Desktop Mode windows keep them in the tool's header).
 
+## What's new in 1.3.16
+
+- **Flight Tracker: recents are capped at 3, and the row can't overflow anymore.** The recents row used to hold up to 5 codes in a fixed row, so with 4 codes the last chip got squeezed into a tall strip and the Clear button was pushed off-screen. Now only the 3 most recent searches are kept (both editions, and old longer histories trim down on load), and the Android row scrolls sideways if it ever needs to — so Clear is always reachable.
+
 ## What's new in 1.3.15
 
 - **Flight Tracker: the card now shows estimated AND scheduled arrival.** It used to show only the estimated arrival, so when Aviationstack reported no estimate, the card showed "--" while the progress bar kept moving — with no visible endpoint to measure it against. The arrival block now shows the scheduled time underneath the estimated time whenever one exists, in both editions. (Note: an earlier 1.3.15 build with a different change was reverted before release and never shipped, so this is the first published 1.3.15.)
@@ -129,14 +133,14 @@ The Android app requires Android 8.0 (API 26) or newer.
 
 ### Web (Windows, Mac, and Linux)
 
-1. **Download [Toolbox_v1.3.15.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.15/Toolbox_v1.3.15.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
+1. **Download [Toolbox_v1.3.16.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.16/Toolbox_v1.3.16.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
 2. Open `Toolbox.html` in any modern browser — double-clicking the file works.
 
 That's all: the web app is a single self-contained HTML file with no install and no build step. It can also be placed on any static hosting service.
 
 ## Versioning
 
-The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.15.apk` and `Toolbox_v1.3.15.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
+The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.16.apk` and `Toolbox_v1.3.16.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
 
 ## Updates
 
