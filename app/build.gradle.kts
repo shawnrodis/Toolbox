@@ -31,8 +31,33 @@ android {
         }
     }
 
+    // Release signing (2026-10-31): CI builds sign with ONE dedicated
+    // key, not a per-runner debug key — otherwise every Actions build
+    // signs differently and Android refuses install-over updates
+    // (v1.3.12 and v1.3.13 both hit this). The keystore and passwords
+    // live only in GitHub secrets (ANDROID_KEYSTORE_BASE64,
+    // ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS,
+    // ANDROID_KEY_PASSWORD) and in a backup copy outside this repo;
+    // they are never committed here. A local release build without
+    // those env vars is left unsigned (Gradle will fail it), while
+    // debug builds are unaffected.
+    val releaseKeystoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
+    signingConfigs {
+        create("release") {
+            if (releaseKeystoreFile != null) {
+                storeFile = file(releaseKeystoreFile)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: "toolbox"
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (releaseKeystoreFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
