@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +55,7 @@ import com.shawnrodis.toolbox.ui.copyToClipboard
 import com.shawnrodis.toolbox.ui.scrollContentBottomPadding
 import com.shawnrodis.toolbox.ui.toast
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -65,9 +67,11 @@ import java.net.URLEncoder
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * Flight Tracker / SkyTrack — Phase 2, faithful port of the source's
@@ -92,7 +96,10 @@ import java.util.Locale
  *    Departure block (airport name, city, "Terminal / Gate", "Scheduled"),
  *    Arrival block (…, "Estimated"), and the statusInsight line under the
  *    "Aviationstack Cross-Reference / Live Stream" footer.
- *    progressPct: 55 when status is "active", 100 when "landed", else 0.
+ *    progressPct: time-based (v1.3.12) — (now - departure) / (arrival -
+ *    departure), clamped 0-100, with departure/arrival times converted
+ *    from airport-local wall-clock digits via their timezone fields;
+ *    landed is 100, cancelled is 0. The old fixed 55 for "active" is gone.
  *    The source uses NO delay fields (verified: zero "delay" references
  *    in the SkyTrack code), so none are shown.
  *  - Times (source: new Date(x).toLocaleTimeString([], {hour:'2-digit',
@@ -127,6 +134,10 @@ data class SkyFlight(
     val status: String,
     val aircraft: String,
     val progressPct: Int,
+    val depStartIso: String = "",
+    val arrEndIso: String = "",
+    val depStartTimezone: String = "",
+    val arrEndTimezone: String = "",
     val depIata: String,
     val depName: String,
     val depCity: String,
@@ -147,6 +158,8 @@ data class SkyFlight(
         .put("flightIata", flightIata).put("airlineName", airlineName)
         .put("airlineIata", airlineIata).put("status", status)
         .put("aircraft", aircraft).put("progressPct", progressPct)
+        .put("depStartIso", depStartIso).put("arrEndIso", arrEndIso)
+        .put("depStartTimezone", depStartTimezone).put("arrEndTimezone", arrEndTimezone)
         .put("depIata", depIata).put("depName", depName).put("depCity", depCity)
         .put("depTerminal", depTerminal).put("depGate", depGate).put("depTime", depTime)
         .put("depIso", depIso)
@@ -160,6 +173,8 @@ data class SkyFlight(
             flightIata = o.optString("flightIata"), airlineName = o.optString("airlineName"),
             airlineIata = o.optString("airlineIata"), status = o.optString("status"),
             aircraft = o.optString("aircraft"), progressPct = o.optInt("progressPct", 0),
+            depStartIso = o.optString("depStartIso"), arrEndIso = o.optString("arrEndIso"),
+            depStartTimezone = o.optString("depStartTimezone"), arrEndTimezone = o.optString("arrEndTimezone"),
             depIata = o.optString("depIata"), depName = o.optString("depName"),
             depCity = o.optString("depCity"), depTerminal = o.optString("depTerminal"),
             depGate = o.optString("depGate"), depTime = o.optString("depTime"),
@@ -231,20 +246,98 @@ fun formatSkyTime(iso: String?, use24h: Boolean = true): String {
 fun skyDisplayTime(iso: String, stored: String, use24h: Boolean): String =
     if (iso.isNotEmpty()) formatSkyTime(iso, use24h) else stored
 
+/**
+ * Converts one Aviationstack time to a real instant. The wall-clock digits
+ * are airport-local and the served offset is +00:00 (v1.3.3 QR929: 23:50
+ * Manila served as +00:00), so the offset must never be trusted: the
+ * digits are interpreted in the airport's IANA timezone field first.
+ * Only a time with no timezone at all falls back to its offset.
+ * Returns null when the time is missing or unparseable.
+ */
+fun skyParseFlightInstant(iso: String?, timeZone: String?): Instant? {
+    if (iso.isNullOrEmpty()) return null
+    val m = Regex("""(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?""").find(iso)
+        ?: return null
+    val wall = try {
+        LocalDateTime.of(
+            m.groupValues[1].toInt(), m.groupValues[2].toInt(), m.groupValues[3].toInt(),
+            m.groupValues[4].toInt(), m.groupValues[5].toInt(),
+            m.groupValues[6].ifEmpty { "0" }.toInt()
+        )
+    } catch (e: Exception) {
+        return null
+    }
+    if (!timeZone.isNullOrEmpty()) {
+        try {
+            return wall.atZone(ZoneId.of(timeZone)).toInstant()
+        } catch (e: Exception) {
+            // Fall through to the offset fallback below.
+        }
+    }
+    return try {
+        OffsetDateTime.parse(iso).toInstant()
+    } catch (e: Exception) {
+        try {
+            wall.atZone(ZoneOffset.UTC).toInstant()
+        } catch (e2: Exception) {
+            null
+        }
+    }
+}
+
+/**
+ * Time-based progress (v1.3.12, mirrors the web skyFlightProgressExact):
+ * (now - departure) / (arrival - departure) * 100, clamped 0-100.
+ * Departure is actual if reported, else scheduled; arrival is actual if
+ * landed, else estimated, else scheduled — both already converted to
+ * instants, so airport-local times are never subtracted directly.
+ * The fractional value drives bar widths so the bar creeps live; the
+ * whole-percent value is only the label.
+ */
+fun skyFlightProgressExact(
+    status: String, depStartIso: String, depStartTimezone: String,
+    arrEndIso: String, arrEndTimezone: String, nowMs: Long = System.currentTimeMillis()
+): Float {
+    val statusLower = status.lowercase(Locale.US)
+    if (statusLower == "landed") return 100f
+    if (statusLower == "cancelled") return 0f
+    val start = skyParseFlightInstant(depStartIso, depStartTimezone) ?: return 0f
+    val end = skyParseFlightInstant(arrEndIso, arrEndTimezone) ?: return 0f
+    if (end <= start) return 0f
+    val now = Instant.ofEpochMilli(nowMs)
+    return ((now.toEpochMilli() - start.toEpochMilli()).toFloat() /
+        (end.toEpochMilli() - start.toEpochMilli()).toFloat() * 100f).coerceIn(0f, 100f)
+}
+
+fun skyFlightProgressExact(flight: SkyFlight, nowMs: Long = System.currentTimeMillis()): Float =
+    skyFlightProgressExact(
+        flight.status,
+        flight.depStartIso.ifEmpty { flight.depIso },
+        flight.depStartTimezone,
+        flight.arrEndIso.ifEmpty { flight.arrIso },
+        flight.arrEndTimezone,
+        nowMs
+    )
+
+fun skyFlightProgress(flight: SkyFlight, nowMs: Long = System.currentTimeMillis()): Int =
+    skyFlightProgressExact(flight, nowMs).roundToInt()
+
 /** Maps one Aviationstack data[0] object to the card model, as skyFetchFlight does. */
 fun parseSkyFlight(cleanCode: String, raw: JSONObject): SkyFlight {
     val statusLower = (raw.str("flight_status") ?: "scheduled").lowercase(Locale.US)
-    val progressPct = when (statusLower) {
-        "active" -> 55
-        "landed" -> 100
-        else -> 0
-    }
     val dep = raw.optJSONObject("departure")
     val arr = raw.optJSONObject("arrival")
     val airline = raw.optJSONObject("airline")
     val aircraftObj = raw.optJSONObject("aircraft")
     val depIata = (dep.str("iata") ?: "N/A").uppercase(Locale.US)
     val arrIata = (arr.str("iata") ?: "N/A").uppercase(Locale.US)
+    val depStartIso = dep.str("actual") ?: dep.str("scheduled") ?: ""
+    val arrEndIso = arr.str("actual") ?: arr.str("estimated") ?: arr.str("scheduled") ?: ""
+    val depStartTimezone = dep.str("timezone") ?: ""
+    val arrEndTimezone = arr.str("timezone") ?: ""
+    val progressPct = skyFlightProgressExact(
+        statusLower, depStartIso, depStartTimezone, arrEndIso, arrEndTimezone
+    ).roundToInt()
     return SkyFlight(
         flightIata = cleanCode,
         airlineName = airline.str("name") ?: "Commercial Airline",
@@ -252,6 +345,10 @@ fun parseSkyFlight(cleanCode: String, raw: JSONObject): SkyFlight {
         status = (raw.str("flight_status") ?: "SCHEDULED").uppercase(Locale.US),
         aircraft = aircraftObj.str("iata") ?: "Aircraft",
         progressPct = progressPct,
+        depStartIso = depStartIso,
+        arrEndIso = arrEndIso,
+        depStartTimezone = depStartTimezone,
+        arrEndTimezone = arrEndTimezone,
         depIata = depIata,
         depName = dep.str("airport") ?: "Departure Airport",
         depCity = skyExtractCityName(dep, "N/A"),
@@ -378,6 +475,22 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
 
     var input by remember { mutableStateOf("") }
     var currentFlight by remember { mutableStateOf<SkyFlight?>(null) }
+    // Live bar clock (v1.3.12): endpoints are fixed at fetch time, so no
+    // re-fetch is needed to move the bar — this tick alone recomposes the
+    // card every 5 seconds and the progress is recomputed from the clock.
+    // A refresh only changes the bar if the times it brings back differ.
+    var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
+    val currentSnapshot = currentFlight
+    LaunchedEffect(currentSnapshot) {
+        if (currentSnapshot == null) return@LaunchedEffect
+        if (currentSnapshot.status.lowercase(Locale.US) == "landed" ||
+            currentSnapshot.status.lowercase(Locale.US) == "cancelled"
+        ) return@LaunchedEffect
+        while (skyFlightProgressExact(currentSnapshot, System.currentTimeMillis()) < 100f) {
+            delay(5000)
+            nowTick = System.currentTimeMillis()
+        }
+    }
     var loading by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
@@ -710,7 +823,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                         ) {
                             Text("${current.depCity} (${current.depIata})", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.ExtraBold)
                             Text(
-                                "${current.progressPct}%",
+                                "${skyFlightProgress(current, nowTick)}%",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary
@@ -718,7 +831,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                             Text("${current.arrCity} (${current.arrIata})", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.ExtraBold)
                         }
                         LinearProgressIndicator(
-                            progress = { current.progressPct / 100f },
+                            progress = { skyFlightProgressExact(current, nowTick) / 100f },
                             modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
                         )
 
@@ -824,7 +937,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                                         Text(skyDisplayTime(flight.depIso, flight.depTime, use24h), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     LinearProgressIndicator(
-                                        progress = { flight.progressPct / 100f },
+                                        progress = { skyFlightProgressExact(flight, nowTick) / 100f },
                                         modifier = Modifier.weight(1f)
                                     )
                                     Column(horizontalAlignment = Alignment.End) {

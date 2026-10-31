@@ -4,10 +4,13 @@ import com.shawnrodis.toolbox.tools.formatSkyTime
 import com.shawnrodis.toolbox.tools.parseSkyFlight
 import com.shawnrodis.toolbox.tools.skyDisplayTime
 import com.shawnrodis.toolbox.tools.skyExtractCityName
+import com.shawnrodis.toolbox.tools.skyFlightProgressExact
+import com.shawnrodis.toolbox.tools.skyParseFlightInstant
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 
 /**
  * Verifies the Phase 2 SkyTrack parser against a sample Aviationstack
@@ -54,7 +57,10 @@ class SkyFlightParserTest {
         assertEquals("AA", f.airlineIata)
         assertEquals("ACTIVE", f.status)
         assertEquals("B738", f.aircraft)
-        assertEquals(55, f.progressPct) // status "active" -> 55 in the source
+        // v1.3.12: progress is time-based, not the old fixed 55 for
+        // "active" — this 2026-10-22 sample is long past arrival, so it
+        // clamps to 100 at parse time.
+        assertEquals(100, f.progressPct)
         assertEquals("JFK", f.depIata) // source uppercases the IATA codes
         assertEquals("John F Kennedy International Airport", f.depName)
         // No "city" field -> airport name with "International Airport" stripped.
@@ -102,16 +108,60 @@ class SkyFlightParserTest {
     }
 
     @Test
-    fun progressFollowsSourceStatusRules() {
+    fun progressIsTimeBasedNotStatusBased() {
         val landed = parseSkyFlight("AA100", JSONObject(sample.toString()).put("flight_status", "landed"))
         assertEquals(100, landed.progressPct)
-        val scheduled = parseSkyFlight("AA100", JSONObject(sample.toString()).put("flight_status", "scheduled"))
-        assertEquals(0, scheduled.progressPct)
+        val cancelled = parseSkyFlight("AA100", JSONObject(sample.toString()).put("flight_status", "cancelled"))
+        assertEquals(0, cancelled.progressPct)
         val noStatus = JSONObject(sample.toString())
         noStatus.remove("flight_status")
         val missing = parseSkyFlight("AA100", noStatus)
         assertEquals("SCHEDULED", missing.status) // source default
-        assertEquals(0, missing.progressPct)
+
+        // QR929 served form: wall digits with +00:00 offsets, timezone
+        // fields carry the truth (23:50 Manila -> 04:03 Doha = 9h13).
+        val qr929Mid = Instant.parse("2026-10-30T20:26:30Z").toEpochMilli()
+        assertEquals(
+            50f,
+            skyFlightProgressExact(
+                "ACTIVE", "2026-10-30T23:50:00+00:00", "Asia/Manila",
+                "2026-10-31T04:03:00+00:00", "Asia/Qatar", qr929Mid
+            ),
+            0.1f
+        )
+        assertEquals(
+            Instant.parse("2026-10-30T15:50:00Z"),
+            skyParseFlightInstant("2026-10-30T23:50:00+00:00", "Asia/Manila")
+        )
+        // DOH -> PHL, offset-only fallback (no timezone supplied).
+        val dohPhlMid = Instant.parse("2026-10-31T12:17:30Z").toEpochMilli()
+        assertEquals(
+            50f,
+            skyFlightProgressExact(
+                "ACTIVE", "2026-10-31T08:00:00+03:00", "",
+                "2026-10-31T15:35:00-04:00", "", dohPhlMid
+            ),
+            0.1f
+        )
+        // Clamps: before departure 0, after arrival 100.
+        assertEquals(
+            0f,
+            skyFlightProgressExact(
+                "ACTIVE", "2026-10-31T08:00:00+03:00", "",
+                "2026-10-31T15:35:00-04:00", "",
+                Instant.parse("2026-10-31T04:00:00Z").toEpochMilli()
+            ),
+            0.1f
+        )
+        assertEquals(
+            100f,
+            skyFlightProgressExact(
+                "ACTIVE", "2026-10-31T08:00:00+03:00", "",
+                "2026-10-31T15:35:00-04:00", "",
+                Instant.parse("2026-11-01T00:00:00Z").toEpochMilli()
+            ),
+            0.1f
+        )
     }
 
     @Test
