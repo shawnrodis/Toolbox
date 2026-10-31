@@ -1,0 +1,40 @@
+# Build the Android edition (debug APK) on GitHub's runners.
+#
+# The Muse VM cannot run Gradle: its Java daemon traffic over local TCP
+# is blocked there, so the build runs here instead, where Gradle works
+# normally. Dispatch-only on purpose — it never runs on push, so it
+# cannot surprise a release. It only builds and uploads the APK as a
+# run artifact; creating a GitHub release from that APK is a separate,
+# manual step, so the shared-version rule (one release carrying both
+# the APK and the HTML edition) stays intact.
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Toolbox-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
