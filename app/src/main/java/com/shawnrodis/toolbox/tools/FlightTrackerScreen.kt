@@ -368,17 +368,34 @@ fun parseSkyFlight(cleanCode: String, raw: JSONObject): SkyFlight {
     )
 }
 
-/** Source skyFetchFlight — blocking; call from an IO context. Throws with the source's messages. */
-fun fetchSkyFlight(apiKeyRaw: String, flightCode: String): SkyFlight {
-    val cleanCode = flightCode.trim().uppercase(Locale.US).replace(Regex("\\s+"), "")
-    val apiKey = apiKeyRaw.trim()
-    if (apiKey.isEmpty()) {
-        throw Exception("API Key required. Please set your Aviationstack key in Settings.")
+/** Codeshare fallback (v1.3.13, mirrors the web skyFindCodeshareMatch):
+ * Aviationstack indexes a flight under its OPERATING carrier, not the
+ * marketing codeshare on the ticket — AA5812 (American) is really
+ * PT5812 (Piedmont), so a flight_iata=AA5812 search returns no records.
+ * Only a codeshare match counts: a bare number match could be a
+ * different airline's flight with the same number, so it is never
+ * accepted blindly. */
+fun skyFindCodeshareMatch(data: JSONArray, cleanCode: String): JSONObject? {
+    val want = cleanCode.uppercase(Locale.US)
+    for (i in 0 until data.length()) {
+        val r = data.optJSONObject(i) ?: continue
+        val flight = r.optJSONObject("flight") ?: continue
+        val cs = flight.optJSONObject("codeshared") ?: flight.optJSONObject("codeshare")
+        if (cs != null &&
+            (cs.optString("flight_iata").uppercase(Locale.US) == want ||
+                cs.optString("flight_icao").uppercase(Locale.US) == want)
+        ) return r
+        if (flight.optString("iata").uppercase(Locale.US) == want ||
+            flight.optString("icao").uppercase(Locale.US) == want
+        ) return r
     }
+    return null
+}
+
+private fun skyGetFlights(apiKey: String, query: String): JSONObject {
     val url = URL(
         "https://api.aviationstack.com/v1/flights?access_key=" +
-            URLEncoder.encode(apiKey, "UTF-8") +
-            "&flight_iata=" + URLEncoder.encode(cleanCode, "UTF-8")
+            URLEncoder.encode(apiKey, "UTF-8") + "&" + query
     )
     val text = try {
         val conn = url.openConnection() as HttpURLConnection
@@ -406,11 +423,37 @@ fun fetchSkyFlight(apiKeyRaw: String, flightCode: String): SkyFlight {
         val err = json.optJSONObject("error")
         throw Exception(err?.str("message") ?: "Aviationstack API error.")
     }
-    val data = json.optJSONArray("data")
-    if (data == null || data.length() == 0) {
-        throw Exception("No flight records found for \"$cleanCode\".")
+    return json
+}
+
+/** Source skyFetchFlight — blocking; call from an IO context. Throws with the source's messages. */
+fun fetchSkyFlight(apiKeyRaw: String, flightCode: String): SkyFlight {
+    val cleanCode = flightCode.trim().uppercase(Locale.US).replace(Regex("\\s+"), "")
+    val apiKey = apiKeyRaw.trim()
+    if (apiKey.isEmpty()) {
+        throw Exception("API Key required. Please set your Aviationstack key in Settings.")
     }
-    return parseSkyFlight(cleanCode, data.getJSONObject(0))
+    val json = skyGetFlights(apiKey, "flight_iata=" + URLEncoder.encode(cleanCode, "UTF-8"))
+    val data = json.optJSONArray("data")
+    if (data != null && data.length() > 0) {
+        return parseSkyFlight(cleanCode, data.getJSONObject(0))
+    }
+    // Codeshare fallback: retry by flight number alone and take only
+    // the record whose codeshared flight matches the typed code.
+    val digits = cleanCode.filter { it.isDigit() }
+    if (digits.isNotEmpty()) {
+        val fbJson = skyGetFlights(apiKey, "flight_number=" + URLEncoder.encode(digits, "UTF-8"))
+        val fbData = fbJson.optJSONArray("data")
+        if (fbData != null && fbData.length() > 0) {
+            val match = skyFindCodeshareMatch(fbData, cleanCode)
+            if (match != null) {
+                val operating = match.optJSONObject("flight")?.optString("iata")
+                    ?.uppercase(Locale.US)?.ifEmpty { cleanCode } ?: cleanCode
+                return parseSkyFlight(operating, match)
+            }
+        }
+    }
+    throw Exception("No flight records found for \"$cleanCode\".")
 }
 
 // Status badge colours in the source are a fixed emerald style for every status.
@@ -832,7 +875,11 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                         }
                         LinearProgressIndicator(
                             progress = { skyFlightProgressExact(current, nowTick) / 100f },
-                            modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+                            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                            // v1.3.13: Material3 draws a stop dot at the far
+                            // end of the track by default, which reads as
+                            // a stray bit of blue at 0% (PT5812 screenshot).
+                            drawStopIndicator = false
                         )
 
                         SkyEndpointBlock(
@@ -938,7 +985,9 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                                     }
                                     LinearProgressIndicator(
                                         progress = { skyFlightProgressExact(flight, nowTick) / 100f },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier.weight(1f),
+                                        // v1.3.13: see the card bar above.
+                                        drawStopIndicator = false
                                     )
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(flight.arrIata, fontWeight = FontWeight.Black, style = MaterialTheme.typography.bodyMedium)

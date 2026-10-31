@@ -56,8 +56,8 @@ check(
 );
 check('sub-label reads PaddleOCR (Offline)', html.includes('PaddleOCR (Offline)'));
 check('default engine state is paddle', html.includes("let ocrEngine = 'paddle';"));
-check('version stamps at 1.3.12', html.includes('<meta name="version" content="1.3.12">') &&
-    html.includes('Web Edition v1.3.12') && html.includes('Version 1.3.12 · by Shawn Rodis'));
+check('version stamps at 1.3.13', html.includes('<meta name="version" content="1.3.13">') &&
+    html.includes('Web Edition v1.3.13') && html.includes('Version 1.3.13 · by Shawn Rodis'));
 
 // ---------- 2. syntax-check every inline classic script ----------
 
@@ -203,6 +203,32 @@ globalThis.__drawCalls = [];
 await mod2.processSearchableOCR();
 check('next run retries the load and succeeds',
     stub.PaddleOcrService.instances.length === before + 2 && globalThis.__drawCalls.length === 2);
+
+// ---------- 4. Flight Tracker codeshare fallback (v1.3.13) ----------
+// Extract the real skyFindCodeshareMatch from the HTML and drive it:
+// AA5812 must resolve to the PT5812 record, an unrelated code must
+// match nothing, and a bare number with no codeshare must not match.
+const csMatch = html.match(/function skyFindCodeshareMatch[\s\S]*?\n        }\n/);
+check('skyFindCodeshareMatch present in web edition', !!csMatch);
+if (csMatch) {
+    const ctx = {};
+    vm.createContext(ctx);
+    vm.runInContext(csMatch[0], ctx);
+    const data = [
+        { flight: { number: '5812', iata: 'DL5812', icao: 'DAL5812', codeshared: null } },
+        { flight: { number: '5812', iata: 'PT5812', icao: 'PDT5812',
+            codeshared: { airline_iata: 'AA', airline_icao: 'AAL', flight_number: '5812', flight_iata: 'AA5812', flight_icao: 'AAL5812' } },
+          departure: { iata: 'PHL' }, arrival: { iata: 'RIC' } },
+    ];
+    check('web codeshare match finds PT5812 for AA5812',
+        ctx.skyFindCodeshareMatch(data, 'AA5812')?.flight?.iata === 'PT5812');
+    check('web codeshare match finds PT5812 for AAL5812 (ICAO form)',
+        ctx.skyFindCodeshareMatch(data, 'AAL5812')?.flight?.iata === 'PT5812');
+    check('web codeshare match rejects an unrelated code',
+        ctx.skyFindCodeshareMatch(data, 'XX9999') === null);
+    check('web codeshare match rejects a bare number with no codeshare',
+        ctx.skyFindCodeshareMatch([data[0]], 'AA5812') === null);
+}
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
