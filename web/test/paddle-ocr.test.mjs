@@ -56,8 +56,8 @@ check(
 );
 check('sub-label reads PaddleOCR (Offline)', html.includes('PaddleOCR (Offline)'));
 check('default engine state is paddle', html.includes("let ocrEngine = 'paddle';"));
-check('version stamps at 1.3.15', html.includes('<meta name="version" content="1.3.15">') &&
-    html.includes('Web Edition v1.3.15') && html.includes('Version 1.3.15 · by Shawn Rodis'));
+check('version stamps at 1.3.14', html.includes('<meta name="version" content="1.3.14">') &&
+    html.includes('Web Edition v1.3.14') && html.includes('Version 1.3.14 · by Shawn Rodis'));
 
 // ---------- 2. syntax-check every inline classic script ----------
 
@@ -204,28 +204,22 @@ await mod2.processSearchableOCR();
 check('next run retries the load and succeeds',
     stub.PaddleOcrService.instances.length === before + 2 && globalThis.__drawCalls.length === 2);
 
-// ---------- 4. Flight Tracker candidate picker (v1.3.14) + today filter (v1.3.15) ----------
-// Extract the real skyBuildFlight + skyParseFlightCandidates (+ the
-// v1.3.15 today helpers they call) from the HTML and drive them with
-// stubs for their progress/time helpers: every flight numbered 5812
-// today is offered (sorted by departure), records without a
-// flight.iata are skipped, and nothing is guessed. "Today" is pinned
-// to 2026-10-31 noon Eastern so the tests never go stale.
+// ---------- 4. Flight Tracker candidate picker (v1.3.14) ----------
+// Extract the real skyBuildFlight + skyParseFlightCandidates from the
+// HTML and drive them with stubs for their progress/time helpers:
+// every flight numbered 5812 today is offered (sorted by departure),
+// records without a flight.iata are skipped, and nothing is guessed.
 const buildMatch = html.match(/function skyBuildFlight[\s\S]*?\n        }\n/);
 const candMatch = html.match(/function skyParseFlightCandidates[\s\S]*?\n        }\n/);
-const departsMatch = html.match(/function skyFlightDepartsToday[\s\S]*?\n        }\n/);
-const labelMatch = html.match(/function skyFlightDateLabel[\s\S]*?\n        }\n/);
-const pickMatch = html.match(/function skyPickTodayFlight[\s\S]*?\n        }\n/);
-check('skyParseFlightCandidates present in web edition', !!buildMatch && !!candMatch && !!departsMatch && !!labelMatch && !!pickMatch);
-if (buildMatch && candMatch && departsMatch && labelMatch && pickMatch) {
+check('skyParseFlightCandidates present in web edition', !!buildMatch && !!candMatch);
+if (buildMatch && candMatch) {
     const ctx = {
         skyFlightProgress: () => 0,
         skyExtractCityName: (ep, fb) => ep?.airport || fb,
         skyFormatTime: (iso) => iso || '--',
     };
     vm.createContext(ctx);
-    vm.runInContext(buildMatch[0] + '\n' + departsMatch[0] + '\n' + labelMatch[0] + '\n' + pickMatch[0] + '\n' + candMatch[0], ctx);
-    const nowMs = Date.parse('2026-10-31T16:00:00Z');
+    vm.runInContext(buildMatch[0] + '\n' + candMatch[0], ctx);
     const data = [
         { flight: { number: '5812', iata: 'PT5812', icao: 'PDT5812' },
           flight_status: 'scheduled',
@@ -242,39 +236,13 @@ if (buildMatch && candMatch && departsMatch && labelMatch && pickMatch) {
           arrival: { iata: 'MSY', airport: 'New Orleans Airport', scheduled: '2026-10-31T09:30:00+00:00' },
           airline: { name: 'Delta Air Lines', iata: 'DL' } },
     ];
-    const cands = ctx.skyParseFlightCandidates(data, nowMs);
+    const cands = ctx.skyParseFlightCandidates(data);
     check('web picker offers both numbered flights, sorted by departure',
         cands.length === 2 && cands[0].flightIata === 'DL5812' && cands[1].flightIata === 'PT5812');
     check('web picker PT5812 candidate carries PHL -> RIC',
         cands[1].depIata === 'PHL' && cands[1].arrIata === 'RIC');
     check('web picker skips records without a flight.iata',
         !cands.some((f) => f.depIata === 'XXX'));
-    // v1.3.15 regression: yesterday's landed PT5812 (Oct 30, F33)
-    // must not beat today's scheduled PT5812 (Oct 31, F35) in a
-    // direct search, and the picker must keep only today's legs.
-    const stale = [
-        { flight: { number: '5812', iata: 'PT5812', icao: 'PDT5812' },
-          flight_status: 'landed',
-          departure: { iata: 'PHL', gate: 'F33', scheduled: '2026-10-30T18:30:00+00:00' },
-          arrival: { iata: 'RIC', gate: 'A12', scheduled: '2026-10-30T19:51:00+00:00' },
-          airline: { name: 'American Airlines', iata: 'AA' } },
-        { flight: { number: '5812', iata: 'PT5812', icao: 'PDT5812' },
-          flight_status: 'scheduled',
-          departure: { iata: 'PHL', gate: 'F35', scheduled: '2026-10-31T17:43:00+00:00' },
-          arrival: { iata: 'RIC', gate: 'A8', scheduled: '2026-10-31T19:03:00+00:00' },
-          airline: { name: 'American Airlines', iata: 'AA' } },
-    ];
-    const picked = ctx.skyPickTodayFlight(stale, 'PT5812', nowMs);
-    check('web direct pick prefers today leg over yesterday first record',
-        picked.status === 'SCHEDULED' && picked.depGate === 'F35');
-    check('web date label reads Oct 31 for today leg',
-        ctx.skyFlightDateLabel(picked) === 'Oct 31');
-    const staleCands = ctx.skyParseFlightCandidates(stale, nowMs);
-    check('web picker keeps only today legs from a mixed response',
-        staleCands.length === 1 && staleCands[0].depGate === 'F35');
-    const onlyStale = ctx.skyParseFlightCandidates(stale.slice(0, 1), nowMs);
-    check('web picker falls back to a lone yesterday leg with its date label',
-        onlyStale.length === 1 && ctx.skyFlightDateLabel(onlyStale[0]) === 'Oct 30');
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);

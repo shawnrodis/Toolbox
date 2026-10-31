@@ -4,9 +4,7 @@ import com.shawnrodis.toolbox.tools.formatSkyTime
 import com.shawnrodis.toolbox.tools.parseSkyFlight
 import com.shawnrodis.toolbox.tools.skyDisplayTime
 import com.shawnrodis.toolbox.tools.skyExtractCityName
-import com.shawnrodis.toolbox.tools.skyFlightDateLabel
 import com.shawnrodis.toolbox.tools.skyParseFlightCandidates
-import com.shawnrodis.toolbox.tools.skyPickTodayFlight
 import com.shawnrodis.toolbox.tools.skyFlightProgressExact
 import com.shawnrodis.toolbox.tools.skyParseFlightInstant
 import org.json.JSONArray
@@ -238,11 +236,7 @@ class SkyFlightParserTest {
             ]
             """.trimIndent()
         )
-        // v1.3.15: the picker is today-filtered, so pin "today" to
-        // 2026-10-31 noon Eastern (16:00 UTC) instead of the real
-        // clock, or this test would go stale the next day.
-        val nowMs = Instant.parse("2026-10-31T16:00:00Z").toEpochMilli()
-        val candidates = skyParseFlightCandidates(data, nowMs)
+        val candidates = skyParseFlightCandidates(data)
         assertEquals(2, candidates.size)
         assertEquals("DL5812", candidates[0].flightIata)
         assertEquals("PT5812", candidates[1].flightIata)
@@ -255,61 +249,5 @@ class SkyFlightParserTest {
         assertEquals("PT5812", parsed.flightIata)
         assertEquals("PHL", parsed.depIata)
         assertEquals("RIC", parsed.arrIata)
-    }
-
-    @Test
-    fun directSearchPrefersTodayLegOverYesterdayFirstRecord() {
-        // v1.3.15 regression: on 2026-10-31 a direct PT5812 search
-        // returned yesterday's landed leg (Oct 30, F33, 6:30 PM) as
-        // data[0] instead of today's scheduled leg (Oct 31, F35,
-        // 5:43 PM). The pick must prefer the leg departing today.
-        val nowMs = Instant.parse("2026-10-31T16:00:00Z").toEpochMilli()
-        val data = JSONArray(
-            """
-            [
-              {"flight": {"number": "5812", "iata": "PT5812", "icao": "PDT5812"},
-               "flight_status": "landed",
-               "departure": {"iata": "PHL", "gate": "F33", "scheduled": "2026-10-30T18:30:00+00:00"},
-               "arrival": {"iata": "RIC", "gate": "A12", "scheduled": "2026-10-30T19:51:00+00:00"},
-               "airline": {"name": "American Airlines", "iata": "AA"}},
-              {"flight": {"number": "5812", "iata": "PT5812", "icao": "PDT5812"},
-               "flight_status": "scheduled",
-               "departure": {"iata": "PHL", "gate": "F35", "scheduled": "2026-10-31T17:43:00+00:00"},
-               "arrival": {"iata": "RIC", "gate": "A8", "scheduled": "2026-10-31T19:03:00+00:00"},
-               "airline": {"name": "American Airlines", "iata": "AA"}}
-            ]
-            """.trimIndent()
-        )
-        val picked = skyPickTodayFlight(data, "PT5812", nowMs)
-        assertEquals("SCHEDULED", picked.status)
-        assertEquals("F35", picked.depGate)
-        assertEquals("Oct 31", skyFlightDateLabel(picked))
-        // The picker keeps only today's legs from the same response.
-        val candidates = skyParseFlightCandidates(data, nowMs)
-        assertEquals(1, candidates.size)
-        assertEquals("F35", candidates[0].depGate)
-    }
-
-    @Test
-    fun candidatePickerFallsBackWhenNothingDepartsToday() {
-        // Only a yesterday leg exists: the picker still offers it
-        // (better than "no records"), and its date label says so.
-        val nowMs = Instant.parse("2026-10-31T16:00:00Z").toEpochMilli()
-        val data = JSONArray(
-            """
-            [
-              {"flight": {"number": "5812", "iata": "PT5812", "icao": "PDT5812"},
-               "flight_status": "landed",
-               "departure": {"iata": "PHL", "gate": "F33", "scheduled": "2026-10-30T18:30:00+00:00"},
-               "arrival": {"iata": "RIC", "gate": "A12", "scheduled": "2026-10-30T19:51:00+00:00"},
-               "airline": {"name": "American Airlines", "iata": "AA"}}
-            ]
-            """.trimIndent()
-        )
-        val candidates = skyParseFlightCandidates(data, nowMs)
-        assertEquals(1, candidates.size)
-        assertEquals("Oct 30", skyFlightDateLabel(candidates[0]))
-        // And the direct pick falls back to data[0] in the same case.
-        assertEquals("F33", skyPickTodayFlight(data, "PT5812", nowMs).depGate)
     }
 }
