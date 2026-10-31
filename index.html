@@ -1990,6 +1990,7 @@
                                         <span class="text-gray-400 text-[9px] uppercase block font-semibold">Estimated</span>
                                         <span id="sky-card-arr-time" class="font-mono font-semibold">--</span>
                                         <button id="sky-copy-arr-time" class="ml-1 text-[10px] text-brand-500 hover:underline font-bold">Copy</button>
+                                        <span id="sky-card-arr-sched-time" class="block text-[11px] text-gray-400 font-mono pt-0.5"></span>
                                     </div>
                                 </div>
                             </div>
@@ -7383,6 +7384,13 @@ const skyState = {
                 arrGate: raw.arrival?.gate || '--',
                 arrTime: raw.arrival?.estimated ? skyFormatTime(raw.arrival.estimated, true) : '--',
                 arrIso: raw.arrival?.estimated || '',
+                // Arrival scheduled time (2026-10-31, per Shawn): the
+                // card used to show only the estimated arrival, so
+                // when Aviationstack reported no estimate the bar's
+                // endpoint was invisible on screen. Both are carried
+                // now, and the card shows both.
+                arrSchedTime: raw.arrival?.scheduled ? skyFormatTime(raw.arrival.scheduled, true) : '--',
+                arrSchedIso: raw.arrival?.scheduled || '',
                 statusInsight: `Live Aviationstack Stream: ${depIata} -> ${arrIata} | Gate ${raw.departure?.gate || '--'} to Gate ${raw.arrival?.gate || '--'}.`
             };
         }
@@ -7563,6 +7571,12 @@ const skyState = {
             document.getElementById('sky-card-arr-loc').textContent = flight.arrCity;
             document.getElementById('sky-card-arr-gate').textContent = `${flight.arrTerminal} / ${flight.arrGate}`;
             document.getElementById('sky-card-arr-time').textContent = skyDisplayTime(flight, 'arr');
+            // Arrival scheduled time (2026-10-31, per Shawn): shown
+            // alongside the estimated time; blank when Aviationstack
+            // reports no scheduled arrival, so the line never shows
+            // a meaningless "--".
+            const arrSched = flight.arrSchedIso ? skyFormatTime(flight.arrSchedIso, skyState.use24h) : (flight.arrSchedTime || '--');
+            document.getElementById('sky-card-arr-sched-time').textContent = (arrSched && arrSched !== '--') ? `Scheduled ${arrSched}` : '';
 
             document.getElementById('sky-card-status-insight').textContent = flight.statusInsight;
 
