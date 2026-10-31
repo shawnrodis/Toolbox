@@ -243,6 +243,17 @@ if (buildMatch && candMatch) {
         cands[1].depIata === 'PHL' && cands[1].arrIata === 'RIC');
     check('web picker skips records without a flight.iata',
         !cands.some((f) => f.depIata === 'XXX'));
+    // Arrival scheduled time (2026-10-31, per Shawn): skyBuildFlight
+    // carries it alongside the estimated time, so the card can show
+    // both — and when the estimate is missing the scheduled value
+    // is still there.
+    const noEst = ctx.skyBuildFlight(
+        { flight: { iata: 'PT5812' }, flight_status: 'scheduled',
+          departure: { iata: 'PHL', scheduled: '2026-10-31T17:43:00+00:00' },
+          arrival: { iata: 'RIC', scheduled: '2026-10-31T19:03:00+00:00' },
+          airline: { name: 'American Airlines', iata: 'AA' } }, 'PT5812');
+    check('web build carries scheduled arrival alongside a missing estimate',
+        noEst.arrTime === '--' && noEst.arrSchedIso === '2026-10-31T19:03:00+00:00' && !!noEst.arrSchedTime);
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);

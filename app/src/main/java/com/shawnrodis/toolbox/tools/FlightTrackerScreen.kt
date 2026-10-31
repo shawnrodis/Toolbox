@@ -152,6 +152,12 @@ data class SkyFlight(
     val arrGate: String,
     val arrTime: String,
     val arrIso: String = "",
+    // Arrival scheduled time (2026-10-31, per Shawn): the card used
+    // to show only the estimated arrival, so when Aviationstack
+    // reported no estimate the bar's endpoint was invisible on
+    // screen. The scheduled arrival is now carried alongside it.
+    val arrSchedTime: String = "",
+    val arrSchedIso: String = "",
     val statusInsight: String
 ) {
     fun toJson(): JSONObject = JSONObject()
@@ -166,6 +172,7 @@ data class SkyFlight(
         .put("arrIata", arrIata).put("arrName", arrName).put("arrCity", arrCity)
         .put("arrTerminal", arrTerminal).put("arrGate", arrGate).put("arrTime", arrTime)
         .put("arrIso", arrIso)
+        .put("arrSchedTime", arrSchedTime).put("arrSchedIso", arrSchedIso)
         .put("statusInsight", statusInsight)
 
     companion object {
@@ -183,6 +190,7 @@ data class SkyFlight(
             arrCity = o.optString("arrCity"), arrTerminal = o.optString("arrTerminal"),
             arrGate = o.optString("arrGate"), arrTime = o.optString("arrTime"),
             arrIso = o.optString("arrIso"),
+            arrSchedTime = o.optString("arrSchedTime"), arrSchedIso = o.optString("arrSchedIso"),
             statusInsight = o.optString("statusInsight")
         )
     }
@@ -363,6 +371,8 @@ fun parseSkyFlight(cleanCode: String, raw: JSONObject): SkyFlight {
         arrGate = arr.str("gate") ?: "--",
         arrTime = formatSkyTime(arr.str("estimated")),
         arrIso = arr.str("estimated") ?: "",
+        arrSchedTime = formatSkyTime(arr.str("scheduled")),
+        arrSchedIso = arr.str("scheduled") ?: "",
         statusInsight = "Live Aviationstack Stream: $depIata -> $arrIata | " +
             "Gate ${dep.str("gate") ?: "--"} to Gate ${arr.str("gate") ?: "--"}."
     )
@@ -1002,7 +1012,9 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                             terminal = current.arrTerminal, gate = current.arrGate,
                             timeLabel = "Estimated",
                             time = skyDisplayTime(current.arrIso, current.arrTime, use24h),
-                            onCopyTime = { copyToClipboard(context, it, "Arrival time copied to clipboard!") }
+                            onCopyTime = { copyToClipboard(context, it, "Arrival time copied to clipboard!") },
+                            secondTimeLabel = "Scheduled",
+                            secondTime = skyDisplayTime(current.arrSchedIso, current.arrSchedTime, use24h)
                         )
 
                         Text(
@@ -1137,7 +1149,12 @@ private fun SkyEndpointBlock(
     gate: String,
     timeLabel: String,
     time: String,
-    onCopyTime: (String) -> Unit
+    onCopyTime: (String) -> Unit,
+    // Optional second time line (arrival scheduled time, 2026-10-31):
+    // shown only when non-empty and not "--", so blocks without one
+    // render exactly as before.
+    secondTimeLabel: String = "",
+    secondTime: String = ""
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(top = 14.dp)) {
         Row(
@@ -1167,6 +1184,10 @@ private fun SkyEndpointBlock(
             Column(horizontalAlignment = Alignment.End) {
                 Text(timeLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(time, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                if (secondTimeLabel.isNotEmpty() && secondTime.isNotEmpty() && secondTime != "--") {
+                    Text(secondTimeLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                    Text(secondTime, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                }
                 if (time != "--") {
                     TextButton(
                         onClick = { onCopyTime(time) },

@@ -202,6 +202,30 @@ class SkyFlightParserTest {
     }
 
     @Test
+    fun arrivalCarriesScheduledAlongsideEstimated() {
+        // 2026-10-31, per Shawn: the card shows estimated AND
+        // scheduled arrival. When Aviationstack reports no estimate
+        // (PT5812 on 2026-10-31: estimated blank), the estimated
+        // display is "--" but the scheduled arrival must still be
+        // carried, and must survive a save/load round-trip.
+        val raw = JSONObject(
+            """
+            {"flight": {"iata": "PT5812"},
+             "flight_status": "scheduled",
+             "departure": {"iata": "PHL", "scheduled": "2026-10-31T17:43:00+00:00"},
+             "arrival": {"iata": "RIC", "scheduled": "2026-10-31T19:03:00+00:00"},
+             "airline": {"name": "American Airlines", "iata": "AA"}}
+            """.trimIndent()
+        )
+        val parsed = parseSkyFlight("PT5812", raw)
+        assertEquals("--", parsed.arrTime)
+        assertEquals("2026-10-31T19:03:00+00:00", parsed.arrSchedIso)
+        assertEquals("19:03", parsed.arrSchedTime)
+        val restored = com.shawnrodis.toolbox.tools.SkyFlight.fromJson(parsed.toJson())
+        assertEquals(parsed, restored)
+    }
+
+    @Test
     fun savedFlightJsonRoundTrips() {
         val f = parseSkyFlight("AA100", sample)
         val restored = com.shawnrodis.toolbox.tools.SkyFlight.fromJson(f.toJson())
