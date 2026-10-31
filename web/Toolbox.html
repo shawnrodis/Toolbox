@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.14 -->
+<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.15 -->
 <html lang="en" id="html-root" class="h-full w-full dark black selection:bg-indigo-500 selection:text-white overflow-x-hidden" data-accent="indigo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Toolbox (Shawn Rodis)</title>
-    <meta name="version" content="1.3.14">
+    <meta name="version" content="1.3.15">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -1806,7 +1806,7 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-xs text-slate-900 dark:text-white">App Updates</h3>
-                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.14</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
+                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.15</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
@@ -1818,7 +1818,7 @@
                     </div>
                 </div>
             </div>
-            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.14 · by Shawn Rodis</div>
+            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.15 · by Shawn Rodis</div>
         </section>
 
 <section id="tab-skytrack" class="tab-content space-y-4 hidden relative">
@@ -7387,6 +7387,60 @@ const skyState = {
             };
         }
 
+        // v1.3.15 — does this flight depart today, in the departure
+        // airport's own timezone? Aviationstack's dateless flight_iata
+        // search is NOT reliably "today": on 2026-10-31 a direct PT5812
+        // search returned yesterday's landed PHL->RIC leg (Oct 30,
+        // gate F33, 6:30 PM) as data[0] instead of today's scheduled
+        // leg (Oct 31, gate F35, 5:43 PM), and the card showed LANDED
+        // at 5:28 PM for a flight that had not departed. The served
+        // wall-clock digits are airport-local, so the departure date
+        // is simply the date prefix of depStartIso (actual else
+        // scheduled); "today" is that date in the departure timezone
+        // field, falling back to the device date when it is missing.
+        // nowMs is injectable so tests can pin "today".
+        function skyFlightDepartsToday(flight, nowMs) {
+            const depDate = (flight.depStartIso || flight.depIso || '').slice(0, 10);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(depDate)) return false;
+            const now = new Date(nowMs === undefined ? Date.now() : nowMs);
+            let today = '';
+            if (flight.depStartTimezone) {
+                try {
+                    today = new Intl.DateTimeFormat('en-CA', { timeZone: flight.depStartTimezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+                } catch (e) { today = ''; }
+            }
+            if (!today) {
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                today = `${now.getFullYear()}-${m}-${d}`;
+            }
+            return depDate === today;
+        }
+
+        // v1.3.15 — "Oct 31" label for a flight's airport-local departure date, "" when unknown.
+        function skyFlightDateLabel(flight) {
+            const raw = (flight.depStartIso || flight.depIso || '').slice(0, 10);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return '';
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return `${months[parseInt(raw.slice(5, 7), 10) - 1]} ${parseInt(raw.slice(8, 10), 10)}`;
+        }
+
+        // v1.3.15 — direct-search pick: parse every record for
+        // cleanCode and take the earliest leg departing today; only
+        // when nothing departs today fall back to data[0] (the
+        // pre-1.3.15 behaviour). This is what stops a direct PT5812
+        // search from showing yesterday's landed leg when today's leg
+        // is in the same response.
+        function skyPickTodayFlight(data, cleanCode, nowMs) {
+            const parsed = data.map((r) => skyBuildFlight(r, cleanCode));
+            const today = parsed.filter((f) => skyFlightDepartsToday(f, nowMs));
+            if (today.length > 0) {
+                today.sort((a, b) => (a.depIso || '').localeCompare(b.depIso || '') || a.depIata.localeCompare(b.depIata) || a.arrIata.localeCompare(b.arrIata));
+                return today[0];
+            }
+            return parsed[0];
+        }
+
         // Primary search only; refresh paths use this, since a picker
         // cannot be shown there (a saved flight's operating code hits
         // directly).
@@ -7407,7 +7461,7 @@ const skyState = {
             if (!json.data || json.data.length === 0) {
                 throw new Error(`No flight records found for "${cleanCode}".`);
             }
-            return skyBuildFlight(json.data[0], cleanCode);
+            return skyPickTodayFlight(json.data, cleanCode);
         }
 
         // Candidate picker (v1.3.14): v1.3.13's codeshare match assumed
@@ -7420,7 +7474,7 @@ const skyState = {
         // no flight is ever guessed. Records without a flight.iata are
         // skipped; the list is sorted by scheduled departure, then
         // route, so the wanted leg is easy to spot.
-        function skyParseFlightCandidates(data) {
+        function skyParseFlightCandidates(data, nowMs) {
             if (!Array.isArray(data)) return [];
             const out = [];
             for (const r of data) {
@@ -7428,8 +7482,10 @@ const skyState = {
                 if (!code) continue;
                 out.push(skyBuildFlight(r, code));
             }
-            out.sort((a, b) => (a.depIso || '').localeCompare(b.depIso || '') || a.depIata.localeCompare(b.depIata) || a.arrIata.localeCompare(b.arrIata));
-            return out;
+            const today = out.filter((f) => skyFlightDepartsToday(f, nowMs));
+            const list = today.length > 0 ? today : out;
+            list.sort((a, b) => (a.depIso || '').localeCompare(b.depIso || '') || a.depIata.localeCompare(b.depIata) || a.arrIata.localeCompare(b.arrIata));
+            return list;
         }
 
         async function skyFetchFlightSearch(flightCode) {
@@ -7447,7 +7503,7 @@ const skyState = {
                 throw new Error(json.error.message || 'Aviationstack API error.');
             }
             if (json.data && json.data.length > 0) {
-                return { found: skyBuildFlight(json.data[0], cleanCode) };
+                return { found: skyPickTodayFlight(json.data, cleanCode) };
             }
             const digits = cleanCode.replace(/[^0-9]/g, '');
             if (digits) {
@@ -7556,7 +7612,11 @@ const skyState = {
             document.getElementById('sky-card-dep-name').textContent = flight.depName;
             document.getElementById('sky-card-dep-loc').textContent = flight.depCity;
             document.getElementById('sky-card-dep-gate').textContent = `${flight.depTerminal} / ${flight.depGate}`;
-            document.getElementById('sky-card-dep-time').textContent = skyDisplayTime(flight, 'dep');
+            // v1.3.15: when the shown leg does not depart today (the
+            // fallback when nothing departs today), its date rides
+            // on the time so the card can never silently show a stale
+            // leg as if it were today's.
+            document.getElementById('sky-card-dep-time').textContent = skyDisplayTime(flight, 'dep') + ((!skyFlightDepartsToday(flight) && skyFlightDateLabel(flight)) ? ` · ${skyFlightDateLabel(flight)}` : '');
 
             document.getElementById('sky-card-arr-iata').textContent = flight.arrIata;
             document.getElementById('sky-card-arr-name').textContent = flight.arrName;
@@ -7679,14 +7739,14 @@ const skyState = {
         function skyRenderCandidatePicker(searchedCode, candidates) {
             skyCandidateList = candidates;
             const el = document.getElementById('sky-candidate-picker');
-            el.innerHTML = `<p class="text-xs font-bold text-gray-300">Flights numbered ${searchedCode} today:</p>` +
+            el.innerHTML = `<p class="text-xs font-bold text-gray-300">Flights numbered ${searchedCode}:</p>` +
                 candidates.map((f, i) => `
                     <button onclick="skySelectCandidate(${i})" class="w-full text-left px-3 py-2.5 rounded-xl sky-card-subtle border hover:opacity-80 transition-all">
                         <span class="flex items-center justify-between gap-2">
                             <span class="font-black text-sm">${f.flightIata}</span>
                             <span class="font-mono text-xs font-bold">${skyDisplayTime(f, 'dep')}</span>
                         </span>
-                        <span class="block text-[11px] text-gray-400">${f.depIata} → ${f.arrIata} · ${f.airlineName} · ${f.status}</span>
+                        <span class="block text-[11px] text-gray-400">${f.depIata} → ${f.arrIata} · ${f.airlineName} · ${skyFlightDateLabel(f) ? skyFlightDateLabel(f) + ' · ' : ''}${f.status}</span>
                     </button>`).join('');
             el.classList.remove('hidden');
         }

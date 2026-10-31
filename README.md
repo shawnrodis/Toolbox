@@ -46,6 +46,11 @@ The **web edition is a web app that can be used on Windows, Mac, and Linux**: it
 
 Most tools can share their results or export them as JPG or PDF from the Share, JPG, and PDF buttons in the bottom bar (Desktop Mode windows keep them in the tool's header).
 
+## What's new in 1.3.15
+
+- **Flight Tracker: today's flight only, and every row says its date.** A direct search for PT5812 was showing yesterday's landed leg (Oct 30, gate F33) instead of today's scheduled one (Oct 31, gate F35) — because Aviationstack's dateless search isn't reliably "today" and Toolbox just took the first record it returned. Now both the direct search and the picker prefer the leg departing today (in the departure airport's own timezone) and only fall back to another date when nothing departs today. Picker rows and a fallback card both carry the departure date, so a leg from another day can't pass as today's. Both editions.
+- **Flight Tracker: no more uninstalls for updates, from here on.** 1.3.14 was the first release-signed build; this one still needs the one uninstall off debug-signed 1.3.13 if you haven't done it yet — after that, install-over works, including the in-app updater.
+
 ## What's new in 1.3.14
 
 - **Flight Tracker: when several flights share one number, pick the right one.** A ticket can say AA5812 while the flight is really operated by Piedmont as PT5812, and Aviationstack doesn't carry codeshare info at all — so the 1.3.13 codeshare fix couldn't work, and searching the ticket code still came back empty. Now, when the ticket-code search returns nothing, Toolbox searches by flight number alone and shows every flight with that number today — operating code, airline, route, and scheduled departure — and you tap the right leg. Nothing is guessed: with one match it loads directly, with none it still says so. Both editions.
@@ -125,14 +130,14 @@ The Android app requires Android 8.0 (API 26) or newer.
 
 ### Web (Windows, Mac, and Linux)
 
-1. **Download [Toolbox_v1.3.14.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.14/Toolbox_v1.3.14.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
+1. **Download [Toolbox_v1.3.15.html](https://github.com/shawnrodis/Toolbox/releases/download/v1.3.15/Toolbox_v1.3.15.html)** — the direct download from the latest release. (The same file also lives in this repository at `web/Toolbox.html`.)
 2. Open `Toolbox.html` in any modern browser — double-clicking the file works.
 
 That's all: the web app is a single self-contained HTML file with no install and no build step. It can also be placed on any static hosting service.
 
 ## Versioning
 
-The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.14.apk` and `Toolbox_v1.3.14.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
+The Android app and the web app are two editions of the same app and **share one version number**: a release bumps both together, so `Toolbox_v1.3.15.apk` and `Toolbox_v1.3.15.html` are the same version of Toolbox on each platform. The web edition shows its version at the bottom of its **Settings** page (and in a `version` meta tag in the file); the Android edition shows "Android Edition · Version …" at the bottom of its **Settings** page too, as well as in Android's **Settings → Apps → Toolbox**.
 
 ## Updates
 

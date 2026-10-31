@@ -65,6 +65,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -286,6 +287,42 @@ fun skyParseFlightInstant(iso: String?, timeZone: String?): Instant? {
 }
 
 /**
+ * v1.3.15 — does this flight depart today, in the departure airport's
+ * own timezone? Aviationstack's dateless flight_iata search is NOT
+ * reliably "today": on 2026-10-31 a direct PT5812 search returned
+ * yesterday's landed PHL->RIC leg (Oct 30, gate F33, 6:30 PM) as
+ * data[0] instead of today's scheduled leg (Oct 31, gate F35,
+ * 5:43 PM), and the card showed LANDED at 5:28 PM for a flight that
+ * had not departed. The served wall-clock digits are airport-local
+ * (v1.3.3), so the departure date is simply the date prefix of
+ * depStartIso (actual else scheduled); "today" is that date in the
+ * departure timezone field, falling back to the device date when the
+ * timezone is missing. [nowMs] is injectable so tests can pin "today".
+ */
+fun skyFlightDepartsToday(flight: SkyFlight, nowMs: Long = System.currentTimeMillis()): Boolean {
+    val depDate = flight.depStartIso.ifEmpty { flight.depIso }.take(10)
+    if (!Regex("""\d{4}-\d{2}-\d{2}""").matches(depDate)) return false
+    val zone = try {
+        if (flight.depStartTimezone.isNotEmpty()) ZoneId.of(flight.depStartTimezone) else null
+    } catch (e: Exception) {
+        null
+    }
+    val today = Instant.ofEpochMilli(nowMs)
+        .atZone(zone ?: ZoneId.systemDefault()).toLocalDate().toString()
+    return depDate == today
+}
+
+/** v1.3.15 — "Oct 31" label for a flight's airport-local departure date, "" when unknown. */
+fun skyFlightDateLabel(flight: SkyFlight): String {
+    val raw = flight.depStartIso.ifEmpty { flight.depIso }.take(10)
+    return try {
+        LocalDate.parse(raw).format(DateTimeFormatter.ofPattern("MMM d", Locale.US))
+    } catch (e: Exception) {
+        ""
+    }
+}
+
+/**
  * Time-based progress (v1.3.12, mirrors the web skyFlightProgressExact):
  * (now - departure) / (arrival - departure) * 100, clamped 0-100.
  * Departure is actual if reported, else scheduled; arrival is actual if
@@ -377,8 +414,14 @@ fun parseSkyFlight(cleanCode: String, raw: JSONObject): SkyFlight {
  * with that number today as a picker — the user taps the right
  * route/time, and no flight is ever guessed. Records without a
  * flight.iata are skipped; the list is sorted by scheduled departure,
- * then route, so the wanted leg is easy to spot. */
-fun skyParseFlightCandidates(data: JSONArray): List<SkyFlight> {
+ * then route, so the wanted leg is easy to spot.
+ * v1.3.15: the list is filtered to legs departing today
+ * (skyFlightDepartsToday) — Aviationstack also returns other dates
+ * for a reused number, and a yesterday leg sorted first would
+ * masquerade as today's. Only when nothing departs today does the
+ * picker fall back to every leg, with date labels on every row so
+ * the date is visible either way. */
+fun skyParseFlightCandidates(data: JSONArray, nowMs: Long = System.currentTimeMillis()): List<SkyFlight> {
     val out = mutableListOf<SkyFlight>()
     for (i in 0 until data.length()) {
         val r = data.optJSONObject(i) ?: continue
@@ -386,9 +429,29 @@ fun skyParseFlightCandidates(data: JSONArray): List<SkyFlight> {
             ?.uppercase(Locale.US)?.ifEmpty { null } ?: continue
         out.add(parseSkyFlight(code, r))
     }
-    return out.sortedWith(
+    val today = out.filter { skyFlightDepartsToday(it, nowMs) }
+    val list = if (today.isNotEmpty()) today else out
+    return list.sortedWith(
         compareBy<SkyFlight> { it.depIso }.thenBy { it.depIata }.thenBy { it.arrIata }
     )
+}
+
+/** v1.3.15 — direct-search pick: parse every record for [cleanCode]
+ * and take the earliest leg departing today; only when nothing
+ * departs today fall back to data[0] (the pre-1.3.15 behaviour).
+ * This is what stops a direct PT5812 search from showing
+ * yesterday's landed leg when today's leg is in the same response. */
+fun skyPickTodayFlight(data: JSONArray, cleanCode: String, nowMs: Long = System.currentTimeMillis()): SkyFlight {
+    val parsed = (0 until data.length()).mapNotNull { data.optJSONObject(it) }
+        .map { parseSkyFlight(cleanCode, it) }
+    if (parsed.isEmpty()) return parseSkyFlight(cleanCode, data.getJSONObject(0))
+    val today = parsed.filter { skyFlightDepartsToday(it, nowMs) }
+    if (today.isNotEmpty()) {
+        return today.sortedWith(
+            compareBy<SkyFlight> { it.depIso }.thenBy { it.depIata }.thenBy { it.arrIata }
+        ).first()
+    }
+    return parsed[0]
 }
 
 /** Result of a tracker search: a flight, or a picker of candidates. */
@@ -443,7 +506,7 @@ fun fetchSkyFlight(apiKeyRaw: String, flightCode: String): SkyFlight {
     val json = skyGetFlights(apiKey, "flight_iata=" + URLEncoder.encode(cleanCode, "UTF-8"))
     val data = json.optJSONArray("data")
     if (data != null && data.length() > 0) {
-        return parseSkyFlight(cleanCode, data.getJSONObject(0))
+        return skyPickTodayFlight(data, cleanCode)
     }
     throw Exception("No flight records found for \"$cleanCode\".")
 }
@@ -463,7 +526,7 @@ fun fetchSkyFlightSearch(apiKeyRaw: String, flightCode: String): SkyFlightSearch
     val json = skyGetFlights(apiKey, "flight_iata=" + URLEncoder.encode(cleanCode, "UTF-8"))
     val data = json.optJSONArray("data")
     if (data != null && data.length() > 0) {
-        return SkyFlightSearchResult.Found(parseSkyFlight(cleanCode, data.getJSONObject(0)))
+        return SkyFlightSearchResult.Found(skyPickTodayFlight(data, cleanCode))
     }
     val digits = cleanCode.filter { it.isDigit() }
     if (digits.isNotEmpty()) {
@@ -810,14 +873,17 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
             // v1.3.14 candidate picker: one row per flight sharing the
             // searched number — operating code, airline, route, and
             // scheduled departure, so the right leg is obvious.
+            // v1.3.15: every row carries its departure date, so a
+            // fallback row from another date cannot pass as today's.
             candidates?.let { pick ->
                 Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
                     Text(
-                        "Flights numbered ${pick.searchedCode} today:",
+                        "Flights numbered ${pick.searchedCode}:",
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(bottom = 6.dp)
                     )
                     pick.flights.forEach { candidate ->
+                        val dateLabel = skyFlightDateLabel(candidate)
                         Card(
                             onClick = { selectCandidate(candidate) },
                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
@@ -846,7 +912,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        candidate.status,
+                                        if (dateLabel.isNotEmpty()) "$dateLabel · ${candidate.status}" else candidate.status,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -992,7 +1058,15 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                             title = "Departure",
                             iata = current.depIata, name = current.depName, city = current.depCity,
                             terminal = current.depTerminal, gate = current.depGate,
-                            timeLabel = "Scheduled",
+                            // v1.3.15: when the shown leg does not depart
+                            // today (the fallback when nothing departs
+                            // today), its date rides on the label so
+                            // the card can never silently show a stale
+                            // leg as if it were today's.
+                            timeLabel = run {
+                                val dateLabel = skyFlightDateLabel(current)
+                                if (dateLabel.isNotEmpty() && !skyFlightDepartsToday(current, nowTick)) "Scheduled · $dateLabel" else "Scheduled"
+                            },
                             time = skyDisplayTime(current.depIso, current.depTime, use24h),
                             onCopyTime = { copyToClipboard(context, it, "Departure time copied to clipboard!") }
                         )
