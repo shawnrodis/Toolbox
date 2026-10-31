@@ -879,7 +879,9 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                             // v1.3.13: Material3 draws a stop dot at the far
                             // end of the track by default, which reads as
                             // a stray bit of blue at 0% (PT5812 screenshot).
-                            drawStopIndicator = false
+                            // This Material3 version takes a draw lambda,
+                            // not a Boolean, so an empty lambda = no dot.
+                            drawStopIndicator = {}
                         )
 
                         SkyEndpointBlock(
@@ -987,7 +989,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                                         progress = { skyFlightProgressExact(flight, nowTick) / 100f },
                                         modifier = Modifier.weight(1f),
                                         // v1.3.13: see the card bar above.
-                                        drawStopIndicator = false
+                                        drawStopIndicator = {}
                                     )
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(flight.arrIata, fontWeight = FontWeight.Black, style = MaterialTheme.typography.bodyMedium)
