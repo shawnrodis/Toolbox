@@ -26,6 +26,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -347,6 +348,7 @@ fun FlightTrackerScreen(store: AppStore, onBack: () -> Unit) {
     FlightTrackerContent(store, Modifier.fillMaxSize())
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -425,11 +427,80 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
         }
     }
 
+    /** sky-refresh-saved-btn handler: re-fetch each, keep old on error. */
+    fun refreshSaved() {
+        if (savedFlights.isEmpty() || refreshing) return
+        refreshing = true
+        scope.launch {
+            val key = settings.aviationstackKey
+            val updated = savedFlights.map { saved ->
+                try {
+                    withContext(Dispatchers.IO) { fetchSkyFlight(key, saved.flightIata) }
+                } catch (e: Exception) {
+                    saved
+                }
+            }
+            saveState(updated, searchHistory, use24h)
+            refreshing = false
+            toast(context, "Refreshed saved flights")
+        }
+    }
+
+    /** v1.3.11: pull-to-refresh — the displayed flight when one is
+        shown (and its saved copy, if it has one), else the saved list;
+        with neither, a toast and no spinner hang. */
+    fun onPullRefresh() {
+        if (loading || refreshing) return
+        val target = currentFlight
+        if (target != null) {
+            refreshing = true
+            scope.launch {
+                try {
+                    val fresh = withContext(Dispatchers.IO) {
+                        fetchSkyFlight(settings.aviationstackKey, target.flightIata)
+                    }
+                    currentFlight = fresh
+                    if (savedFlights.any { it.flightIata == target.flightIata }) {
+                        saveState(
+                            savedFlights.map { if (it.flightIata == target.flightIata) fresh else it },
+                            searchHistory, use24h
+                        )
+                    }
+                    statusMessage = "Refreshed live data for ${fresh.flightIata}"
+                    statusIsError = false
+                    toast(context, "Refreshed live data for ${fresh.flightIata}")
+                } catch (e: Exception) {
+                    val msg = e.message ?: "Aviationstack API error."
+                    statusMessage = msg
+                    statusIsError = true
+                    toast(context, msg)
+                } finally {
+                    refreshing = false
+                }
+            }
+        } else if (savedFlights.isNotEmpty()) {
+            refreshSaved()
+        } else {
+            toast(context, "Nothing to refresh yet — track a flight first")
+        }
+    }
+
     val current = currentFlight
     val currentIsSaved = current != null && savedFlights.any { it.flightIata == current.flightIata }
 
-        Column(
+        // v1.3.11: swipe down to refresh — the standard Material3 pull
+        // indicator over the tracker's scroll content. The pull
+        // refreshes the displayed flight when one is shown, else the
+        // saved list (same as the Refresh button, which stays as the
+        // tap path). The box owns the outer modifier; the column keeps
+        // its own padding and scroll.
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = { onPullRefresh() },
             modifier = modifier
+        ) {
+        Column(
+            modifier = Modifier
                 // v1.3.7: bottom = breathing gap only; the Scaffold
                 // bottomBar slot pads content above the bar.
                 .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = scrollContentBottomPadding())
@@ -695,23 +766,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                 }
                 OutlinedButton(
                     enabled = savedFlights.isNotEmpty() && !refreshing,
-                    onClick = {
-                        // sky-refresh-saved-btn handler: re-fetch each, keep old on error.
-                        refreshing = true
-                        scope.launch {
-                            val key = settings.aviationstackKey
-                            val updated = savedFlights.map { saved ->
-                                try {
-                                    withContext(Dispatchers.IO) { fetchSkyFlight(key, saved.flightIata) }
-                                } catch (e: Exception) {
-                                    saved
-                                }
-                            }
-                            saveState(updated, searchHistory, use24h)
-                            refreshing = false
-                            toast(context, "Refreshed saved flights")
-                        }
-                    }
+                    onClick = { refreshSaved() }
                 ) { Text(if (refreshing) "Refreshing..." else "Refresh") }
             }
 
@@ -801,6 +856,7 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                 }
             }
         }
+        } // PullToRefreshBox
 }
 
 @Composable

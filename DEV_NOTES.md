@@ -5,7 +5,9 @@ A true-native Android rebuild of Shawn's "Toolbox (Shawn Rodis)" HTML app.
 - **Package (placeholder, can change):** `com.shawnrodis.toolbox`
 - **Stack:** Kotlin + Jetpack Compose + Material 3 — **no WebView anywhere**.
   Every screen is a native composable; there is no HTML/CSS/JS in this project.
-- **Status (2026-10-30):** **v1.3.10** — versionCode 28, versionName `1.3.10`.
+- **Status (2026-10-30):** **v1.3.11** — versionCode 29, versionName `1.3.11`.
+  Flight Tracker pull-to-refresh (native only — the web edition runs in desktop browsers, where there is no swipe gesture, and keeps its Refresh button): FlightTrackerContent's scroll column wrapped in Material3 PullToRefreshBox (isRefreshing = refreshing); onPullRefresh refreshes the displayed flight + its saved copy when one is shown, else the saved list via the extracted refreshSaved() (the Refresh button now calls it too); neither → toast. Desktop windows share the content, so the wrapper is present there but the gesture rarely triggers; the Refresh button remains the path there.
+  v1.3.10 — versionCode 28, versionName `1.3.10`.
   Bottom-bar spacing evened out: the outer row now spaces its groups by the same 7dp the groups use internally (v1.3.9 left a 0dp chrome→trio seam). Home untouched. Pages auto-sync: .github/workflows/pages.yml copies main's web/Toolbox.html to gh-pages index.html on every push touching the web file (plus manual dispatch), serialized on a pages-sync concurrency group — the website link always serves latest with no manual worktree refresh.
   v1.3.9 — versionCode 27, versionName `1.3.9`.
   Export trio (Share/JPG/PDF) moved from tool headers to the bottom bar in both editions: native headers publish their trio bundle to the shell holder (equality-guarded SideEffect + guarded dispose; desktop windows get no holder, so their headers keep the trio); web has an identical bottom bar (header + FAB retired, hidden via CSS), a JS per-tab trio map (30/30 calls match the in-tab buttons), and in-tab trio buttons hidden in normal mode but shown inside desktop windows. Web main bottom padding pb-12 → pb-20 for bar clearance.
