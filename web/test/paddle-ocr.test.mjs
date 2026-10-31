@@ -56,8 +56,8 @@ check(
 );
 check('sub-label reads PaddleOCR (Offline)', html.includes('PaddleOCR (Offline)'));
 check('default engine state is paddle', html.includes("let ocrEngine = 'paddle';"));
-check('version stamps at 1.3.13', html.includes('<meta name="version" content="1.3.13">') &&
-    html.includes('Web Edition v1.3.13') && html.includes('Version 1.3.13 · by Shawn Rodis'));
+check('version stamps at 1.3.14', html.includes('<meta name="version" content="1.3.14">') &&
+    html.includes('Web Edition v1.3.14') && html.includes('Version 1.3.14 · by Shawn Rodis'));
 
 // ---------- 2. syntax-check every inline classic script ----------
 
@@ -204,30 +204,45 @@ await mod2.processSearchableOCR();
 check('next run retries the load and succeeds',
     stub.PaddleOcrService.instances.length === before + 2 && globalThis.__drawCalls.length === 2);
 
-// ---------- 4. Flight Tracker codeshare fallback (v1.3.13) ----------
-// Extract the real skyFindCodeshareMatch from the HTML and drive it:
-// AA5812 must resolve to the PT5812 record, an unrelated code must
-// match nothing, and a bare number with no codeshare must not match.
-const csMatch = html.match(/function skyFindCodeshareMatch[\s\S]*?\n        }\n/);
-check('skyFindCodeshareMatch present in web edition', !!csMatch);
-if (csMatch) {
-    const ctx = {};
+// ---------- 4. Flight Tracker candidate picker (v1.3.14) ----------
+// Extract the real skyBuildFlight + skyParseFlightCandidates from the
+// HTML and drive them with stubs for their progress/time helpers:
+// every flight numbered 5812 today is offered (sorted by departure),
+// records without a flight.iata are skipped, and nothing is guessed.
+const buildMatch = html.match(/function skyBuildFlight[\s\S]*?\n        }\n/);
+const candMatch = html.match(/function skyParseFlightCandidates[\s\S]*?\n        }\n/);
+check('skyParseFlightCandidates present in web edition', !!buildMatch && !!candMatch);
+if (buildMatch && candMatch) {
+    const ctx = {
+        skyFlightProgress: () => 0,
+        skyExtractCityName: (ep, fb) => ep?.airport || fb,
+        skyFormatTime: (iso) => iso || '--',
+    };
     vm.createContext(ctx);
-    vm.runInContext(csMatch[0], ctx);
+    vm.runInContext(buildMatch[0] + '\n' + candMatch[0], ctx);
     const data = [
-        { flight: { number: '5812', iata: 'DL5812', icao: 'DAL5812', codeshared: null } },
-        { flight: { number: '5812', iata: 'PT5812', icao: 'PDT5812',
-            codeshared: { airline_iata: 'AA', airline_icao: 'AAL', flight_number: '5812', flight_iata: 'AA5812', flight_icao: 'AAL5812' } },
-          departure: { iata: 'PHL' }, arrival: { iata: 'RIC' } },
+        { flight: { number: '5812', iata: 'PT5812', icao: 'PDT5812' },
+          flight_status: 'scheduled',
+          departure: { iata: 'PHL', airport: 'Philadelphia International Airport', scheduled: '2026-10-31T17:43:00+00:00' },
+          arrival: { iata: 'RIC', airport: 'Richmond International Airport', scheduled: '2026-10-31T19:03:00+00:00' },
+          airline: { name: 'American Airlines', iata: 'AA' } },
+        { flight: { number: '5812' },
+          flight_status: 'scheduled',
+          departure: { iata: 'XXX' }, arrival: { iata: 'YYY' },
+          airline: { name: 'Unknown', iata: 'XX' } },
+        { flight: { number: '5812', iata: 'DL5812', icao: 'DAL5812' },
+          flight_status: 'scheduled',
+          departure: { iata: 'ATL', airport: 'Atlanta Airport', scheduled: '2026-10-31T08:00:00+00:00' },
+          arrival: { iata: 'MSY', airport: 'New Orleans Airport', scheduled: '2026-10-31T09:30:00+00:00' },
+          airline: { name: 'Delta Air Lines', iata: 'DL' } },
     ];
-    check('web codeshare match finds PT5812 for AA5812',
-        ctx.skyFindCodeshareMatch(data, 'AA5812')?.flight?.iata === 'PT5812');
-    check('web codeshare match finds PT5812 for AAL5812 (ICAO form)',
-        ctx.skyFindCodeshareMatch(data, 'AAL5812')?.flight?.iata === 'PT5812');
-    check('web codeshare match rejects an unrelated code',
-        ctx.skyFindCodeshareMatch(data, 'XX9999') === null);
-    check('web codeshare match rejects a bare number with no codeshare',
-        ctx.skyFindCodeshareMatch([data[0]], 'AA5812') === null);
+    const cands = ctx.skyParseFlightCandidates(data);
+    check('web picker offers both numbered flights, sorted by departure',
+        cands.length === 2 && cands[0].flightIata === 'DL5812' && cands[1].flightIata === 'PT5812');
+    check('web picker PT5812 candidate carries PHL -> RIC',
+        cands[1].depIata === 'PHL' && cands[1].arrIata === 'RIC');
+    check('web picker skips records without a flight.iata',
+        !cands.some((f) => f.depIata === 'XXX'));
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);

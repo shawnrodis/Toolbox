@@ -368,28 +368,33 @@ fun parseSkyFlight(cleanCode: String, raw: JSONObject): SkyFlight {
     )
 }
 
-/** Codeshare fallback (v1.3.13, mirrors the web skyFindCodeshareMatch):
- * Aviationstack indexes a flight under its OPERATING carrier, not the
- * marketing codeshare on the ticket — AA5812 (American) is really
- * PT5812 (Piedmont), so a flight_iata=AA5812 search returns no records.
- * Only a codeshare match counts: a bare number match could be a
- * different airline's flight with the same number, so it is never
- * accepted blindly. */
-fun skyFindCodeshareMatch(data: JSONArray, cleanCode: String): JSONObject? {
-    val want = cleanCode.uppercase(Locale.US)
+/** Candidate picker (v1.3.14, mirrors the web skyParseFlightCandidates):
+ * v1.3.13's codeshare match assumed Aviationstack carries a codeshare
+ * field — it does not (proven by AA5812 on 1.3.13: still "no records"
+ * even though PT5812 exists), so that match could never succeed and
+ * was removed. Instead, when the ticket-code search is empty, the
+ * tracker searches by flight number alone and offers every flight
+ * with that number today as a picker — the user taps the right
+ * route/time, and no flight is ever guessed. Records without a
+ * flight.iata are skipped; the list is sorted by scheduled departure,
+ * then route, so the wanted leg is easy to spot. */
+fun skyParseFlightCandidates(data: JSONArray): List<SkyFlight> {
+    val out = mutableListOf<SkyFlight>()
     for (i in 0 until data.length()) {
         val r = data.optJSONObject(i) ?: continue
-        val flight = r.optJSONObject("flight") ?: continue
-        val cs = flight.optJSONObject("codeshared") ?: flight.optJSONObject("codeshare")
-        if (cs != null &&
-            (cs.optString("flight_iata").uppercase(Locale.US) == want ||
-                cs.optString("flight_icao").uppercase(Locale.US) == want)
-        ) return r
-        if (flight.optString("iata").uppercase(Locale.US) == want ||
-            flight.optString("icao").uppercase(Locale.US) == want
-        ) return r
+        val code = r.optJSONObject("flight")?.optString("iata")
+            ?.uppercase(Locale.US)?.ifEmpty { null } ?: continue
+        out.add(parseSkyFlight(code, r))
     }
-    return null
+    return out.sortedWith(
+        compareBy<SkyFlight> { it.depIso }.thenBy { it.depIata }.thenBy { it.arrIata }
+    )
+}
+
+/** Result of a tracker search: a flight, or a picker of candidates. */
+sealed interface SkyFlightSearchResult {
+    data class Found(val flight: SkyFlight) : SkyFlightSearchResult
+    data class Candidates(val searchedCode: String, val flights: List<SkyFlight>) : SkyFlightSearchResult
 }
 
 private fun skyGetFlights(apiKey: String, query: String): JSONObject {
@@ -426,7 +431,9 @@ private fun skyGetFlights(apiKey: String, query: String): JSONObject {
     return json
 }
 
-/** Source skyFetchFlight — blocking; call from an IO context. Throws with the source's messages. */
+/** Source skyFetchFlight — blocking; call from an IO context. Throws with the source's messages.
+ * Primary search only; refresh paths use this, since a picker cannot
+ * be shown there (a saved flight's operating code hits directly). */
 fun fetchSkyFlight(apiKeyRaw: String, flightCode: String): SkyFlight {
     val cleanCode = flightCode.trim().uppercase(Locale.US).replace(Regex("\\s+"), "")
     val apiKey = apiKeyRaw.trim()
@@ -438,18 +445,37 @@ fun fetchSkyFlight(apiKeyRaw: String, flightCode: String): SkyFlight {
     if (data != null && data.length() > 0) {
         return parseSkyFlight(cleanCode, data.getJSONObject(0))
     }
-    // Codeshare fallback: retry by flight number alone and take only
-    // the record whose codeshared flight matches the typed code.
+    throw Exception("No flight records found for \"$cleanCode\".")
+}
+
+/** Tracker search with the candidate picker — blocking; call from an IO context.
+ * Primary search first; when it is empty, search by flight number
+ * alone. No candidates → the original "no records" error. Exactly
+ * one candidate → it is loaded directly (its route/airline show on
+ * the card, so a wrong single match is visible at once). Several →
+ * the caller shows the picker. */
+fun fetchSkyFlightSearch(apiKeyRaw: String, flightCode: String): SkyFlightSearchResult {
+    val cleanCode = flightCode.trim().uppercase(Locale.US).replace(Regex("\\s+"), "")
+    val apiKey = apiKeyRaw.trim()
+    if (apiKey.isEmpty()) {
+        throw Exception("API Key required. Please set your Aviationstack key in Settings.")
+    }
+    val json = skyGetFlights(apiKey, "flight_iata=" + URLEncoder.encode(cleanCode, "UTF-8"))
+    val data = json.optJSONArray("data")
+    if (data != null && data.length() > 0) {
+        return SkyFlightSearchResult.Found(parseSkyFlight(cleanCode, data.getJSONObject(0)))
+    }
     val digits = cleanCode.filter { it.isDigit() }
     if (digits.isNotEmpty()) {
         val fbJson = skyGetFlights(apiKey, "flight_number=" + URLEncoder.encode(digits, "UTF-8"))
         val fbData = fbJson.optJSONArray("data")
         if (fbData != null && fbData.length() > 0) {
-            val match = skyFindCodeshareMatch(fbData, cleanCode)
-            if (match != null) {
-                val operating = match.optJSONObject("flight")?.optString("iata")
-                    ?.uppercase(Locale.US)?.ifEmpty { cleanCode } ?: cleanCode
-                return parseSkyFlight(operating, match)
+            val candidates = skyParseFlightCandidates(fbData)
+            if (candidates.size == 1) {
+                return SkyFlightSearchResult.Found(candidates[0])
+            }
+            if (candidates.isNotEmpty()) {
+                return SkyFlightSearchResult.Candidates(cleanCode, candidates)
             }
         }
     }
@@ -538,6 +564,10 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
     var refreshing by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var statusIsError by remember { mutableStateOf(false) }
+    // v1.3.14 candidate picker: several flights share the searched
+    // number (e.g. AA5812's number is also PT5812's), so the user
+    // picks the right one instead of the app guessing.
+    var candidates by remember { mutableStateOf<SkyFlightSearchResult.Candidates?>(null) }
     val scrollState = rememberScrollState()
 
     /** skySaveState(): persists {savedFlights, searchHistory, use24h}. */
@@ -559,19 +589,30 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
     fun executeSearch(code: String) {
         if (code.isBlank() || loading) return
         loading = true
+        candidates = null
         scope.launch {
             try {
-                val flight = withContext(Dispatchers.IO) {
-                    fetchSkyFlight(settings.aviationstackKey, code)
+                val result = withContext(Dispatchers.IO) {
+                    fetchSkyFlightSearch(settings.aviationstackKey, code)
                 }
-                currentFlight = flight
-                if (!searchHistory.contains(flight.flightIata)) {
-                    saveState(savedFlights, (listOf(flight.flightIata) + searchHistory).take(5), use24h)
+                when (result) {
+                    is SkyFlightSearchResult.Found -> {
+                        val flight = result.flight
+                        currentFlight = flight
+                        if (!searchHistory.contains(flight.flightIata)) {
+                            saveState(savedFlights, (listOf(flight.flightIata) + searchHistory).take(5), use24h)
+                        }
+                        statusMessage = "Loaded live data for ${flight.flightIata}"
+                        statusIsError = false
+                        toast(context, "Loaded live data for ${flight.flightIata}")
+                        scrollState.animateScrollTo(0)
+                    }
+                    is SkyFlightSearchResult.Candidates -> {
+                        candidates = result
+                        statusMessage = "Several flights share that number — pick the right one"
+                        statusIsError = false
+                    }
                 }
-                statusMessage = "Loaded live data for ${flight.flightIata}"
-                statusIsError = false
-                toast(context, "Loaded live data for ${flight.flightIata}")
-                scrollState.animateScrollTo(0)
             } catch (e: Exception) {
                 val msg = e.message ?: "Aviationstack API error."
                 statusMessage = msg
@@ -581,6 +622,19 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                 loading = false
             }
         }
+    }
+
+    /** Candidate picker tap: track the chosen flight, as if searched directly. */
+    fun selectCandidate(flight: SkyFlight) {
+        candidates = null
+        currentFlight = flight
+        if (!searchHistory.contains(flight.flightIata)) {
+            saveState(savedFlights, (listOf(flight.flightIata) + searchHistory).take(5), use24h)
+        }
+        statusMessage = "Loaded live data for ${flight.flightIata}"
+        statusIsError = false
+        toast(context, "Loaded live data for ${flight.flightIata}")
+        scope.launch { scrollState.animateScrollTo(0) }
     }
 
     /** sky-refresh-saved-btn handler: re-fetch each, keep old on error. */
@@ -751,6 +805,56 @@ fun FlightTrackerContent(store: AppStore, modifier: Modifier = Modifier) {
                     else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 8.dp)
                 )
+            }
+
+            // v1.3.14 candidate picker: one row per flight sharing the
+            // searched number — operating code, airline, route, and
+            // scheduled departure, so the right leg is obvious.
+            candidates?.let { pick ->
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                    Text(
+                        "Flights numbered ${pick.searchedCode} today:",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    pick.flights.forEach { candidate ->
+                        Card(
+                            onClick = { selectCandidate(candidate) },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.fillMaxWidth().padding(12.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        candidate.flightIata,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                    Text(
+                                        "${candidate.depIata} → ${candidate.arrIata} · ${candidate.airlineName}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        skyDisplayTime(candidate.depIso, candidate.depTime, use24h),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        candidate.status,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // Recent searches (skyRenderSearchHistory)

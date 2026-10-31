@@ -4,14 +4,12 @@ import com.shawnrodis.toolbox.tools.formatSkyTime
 import com.shawnrodis.toolbox.tools.parseSkyFlight
 import com.shawnrodis.toolbox.tools.skyDisplayTime
 import com.shawnrodis.toolbox.tools.skyExtractCityName
-import com.shawnrodis.toolbox.tools.skyFindCodeshareMatch
+import com.shawnrodis.toolbox.tools.skyParseFlightCandidates
 import com.shawnrodis.toolbox.tools.skyFlightProgressExact
 import com.shawnrodis.toolbox.tools.skyParseFlightInstant
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
@@ -211,43 +209,43 @@ class SkyFlightParserTest {
     }
 
     @Test
-    fun codeshareMatchFindsMarketingCodeAndRejectsBareNumber() {
-        // v1.3.13: AA5812 on 2026-10-31 is really PT5812 (Piedmont,
-        // PHL -> RIC); another carrier's 5812 must never be accepted.
+    fun candidatePickerParsesAndSortsFlightNumberMatches() {
+        // v1.3.14: AA5812 on 2026-10-31 is really PT5812 (Piedmont,
+        // PHL -> RIC), but Aviationstack carries no codeshare field —
+        // v1.3.13's codeshare match could never succeed, so the
+        // fallback now offers every flight numbered 5812 today and
+        // the user picks. Records without a flight.iata are skipped,
+        // and the list sorts by scheduled departure, then route.
         val data = JSONArray(
             """
             [
-              {"flight": {"number": "5812", "iata": "DL5812", "icao": "DAL5812", "codeshared": null},
+              {"flight": {"number": "5812", "iata": "PT5812", "icao": "PDT5812"},
                "flight_status": "scheduled",
-               "departure": {"iata": "ATL"}, "arrival": {"iata": "MSY"},
-               "airline": {"name": "Delta Air Lines", "iata": "DL"}},
-              {"flight": {"number": "5812", "iata": "PT5812", "icao": "PDT5812",
-                 "codeshared": {"airline_name": "American Airlines", "airline_iata": "AA",
-                   "airline_icao": "AAL", "flight_number": "5812",
-                   "flight_iata": "AA5812", "flight_icao": "AAL5812"}},
+               "departure": {"iata": "PHL", "scheduled": "2026-10-31T17:43:00+00:00"},
+               "arrival": {"iata": "RIC", "scheduled": "2026-10-31T19:03:00+00:00"},
+               "airline": {"name": "American Airlines", "iata": "AA"}},
+              {"flight": {"number": "5812"},
                "flight_status": "scheduled",
-               "departure": {"iata": "PHL"}, "arrival": {"iata": "RIC"},
-               "airline": {"name": "American Airlines", "iata": "AA"}}
+               "departure": {"iata": "XXX"}, "arrival": {"iata": "YYY"},
+               "airline": {"name": "Unknown", "iata": "XX"}},
+              {"flight": {"number": "5812", "iata": "DL5812", "icao": "DAL5812"},
+               "flight_status": "scheduled",
+               "departure": {"iata": "ATL", "scheduled": "2026-10-31T08:00:00+00:00"},
+               "arrival": {"iata": "MSY", "scheduled": "2026-10-31T09:30:00+00:00"},
+               "airline": {"name": "Delta Air Lines", "iata": "DL"}}
             ]
             """.trimIndent()
         )
-        val match = skyFindCodeshareMatch(data, "AA5812")
-        assertNotNull(match)
-        assertEquals("PT5812", match!!.optJSONObject("flight")?.optString("iata"))
-        assertEquals("PHL", match.optJSONObject("departure")?.optString("iata"))
-        // ICAO form of the same codeshare also matches.
-        assertNotNull(skyFindCodeshareMatch(data, "AAL5812"))
-        // An unrelated code must not match either record, even though
-        // both carry flight number 5812.
-        assertNull(skyFindCodeshareMatch(data, "XX9999"))
-        // And a bare number with no codeshare at all matches nothing.
-        val noCodeshare = JSONArray(
-            """[{"flight": {"number": "5812", "iata": "DL5812", "icao": "DAL5812"}}]"""
-        )
-        assertNull(skyFindCodeshareMatch(noCodeshare, "AA5812"))
+        val candidates = skyParseFlightCandidates(data)
+        assertEquals(2, candidates.size)
+        assertEquals("DL5812", candidates[0].flightIata)
+        assertEquals("PT5812", candidates[1].flightIata)
+        assertEquals("PHL", candidates[1].depIata)
+        assertEquals("RIC", candidates[1].arrIata)
+        assertEquals("American Airlines", candidates[1].airlineName)
         // The operating record parses under its own code, so a later
         // refresh hits PT5812 directly without another fallback.
-        val parsed = parseSkyFlight("PT5812", match)
+        val parsed = parseSkyFlight("PT5812", data.getJSONObject(0))
         assertEquals("PT5812", parsed.flightIata)
         assertEquals("PHL", parsed.depIata)
         assertEquals("RIC", parsed.arrIata)

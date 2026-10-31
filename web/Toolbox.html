@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.13 -->
+<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.14 -->
 <html lang="en" id="html-root" class="h-full w-full dark black selection:bg-indigo-500 selection:text-white overflow-x-hidden" data-accent="indigo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Toolbox (Shawn Rodis)</title>
-    <meta name="version" content="1.3.13">
+    <meta name="version" content="1.3.14">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -1806,7 +1806,7 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-xs text-slate-900 dark:text-white">App Updates</h3>
-                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.13</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
+                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.14</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
@@ -1818,7 +1818,7 @@
                     </div>
                 </div>
             </div>
-            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.13 · by Shawn Rodis</div>
+            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.14 · by Shawn Rodis</div>
         </section>
 
 <section id="tab-skytrack" class="tab-content space-y-4 hidden relative">
@@ -1879,6 +1879,10 @@
                     <input type="checkbox" id="sky-24h-toggle" checked class="accent-brand-500" />
                     24-hour time
                 </label>
+
+                <!-- Candidate picker (v1.3.14): several flights share a
+                     searched number — tap the right one. -->
+                <div id="sky-candidate-picker" class="hidden space-y-2 pt-3"></div>
             </section>
 
             <div class="space-y-4">
@@ -7338,71 +7342,9 @@ const skyState = {
             return Math.round(skyFlightProgressExact(flight, nowMs));
         }
 
-        // Codeshare fallback (v1.3.13): Aviationstack indexes a flight
-        // under its OPERATING carrier, not the marketing codeshare on
-        // the ticket — AA5812 (American) is really PT5812 (Piedmont),
-        // so a flight_iata=AA5812 search returns no records at all.
-        // When the primary search is empty, retry by flight number
-        // alone and take the record whose codeshared flight matches
-        // the code the user typed. Only a codeshare match counts —
-        // a bare number match could be a different airline's flight
-        // with the same number, so it is never accepted blindly.
-        function skyFindCodeshareMatch(data, cleanCode) {
-            if (!Array.isArray(data)) return null;
-            const want = String(cleanCode || '').toUpperCase();
-            for (const r of data) {
-                const flight = r.flight || {};
-                const cs = flight.codeshared || flight.codeshare || null;
-                if (cs && (String(cs.flight_iata || '').toUpperCase() === want || String(cs.flight_icao || '').toUpperCase() === want)) return r;
-                if (String(flight.iata || '').toUpperCase() === want || String(flight.icao || '').toUpperCase() === want) return r;
-            }
-            return null;
-        }
-
-        async function skyFetchFlight(flightCode) {
-            const cleanCode = flightCode.trim().toUpperCase().replace(/\s+/g, '');
-            const apiKey = skyGetApiKey();
-
-            if (!apiKey) {
-                throw new Error('API Key required. Please set your Aviationstack key in Settings.');
-            }
-
-            const response = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${apiKey}&flight_iata=${cleanCode}`);
-            if (!response.ok) {
-                throw new Error(`Aviationstack HTTP Error: ${response.status}`);
-            }
-
-            const json = await response.json();
-
-            if (json.error) {
-                throw new Error(json.error.message || 'Aviationstack API error.');
-            }
-
-            let raw = null;
-            let displayCode = cleanCode;
-            if (json.data && json.data.length > 0) {
-                raw = json.data[0];
-            } else {
-                const digits = cleanCode.replace(/[^0-9]/g, '');
-                if (digits) {
-                    const fbResponse = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${apiKey}&flight_number=${digits}`);
-                    if (fbResponse.ok) {
-                        const fbJson = await fbResponse.json();
-                        if (!fbJson.error && fbJson.data) {
-                            const match = skyFindCodeshareMatch(fbJson.data, cleanCode);
-                            if (match) {
-                                raw = match;
-                                displayCode = String(match.flight?.iata || cleanCode).toUpperCase();
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (!raw) {
-                throw new Error(`No flight records found for "${cleanCode}".`);
-            }
-
+        // Flight object builder, shared by the primary search and the
+        // candidate picker (v1.3.14) so both parse identically.
+        function skyBuildFlight(raw, displayCode) {
             const status = (raw.flight_status || 'scheduled').toLowerCase();
             const depStartIso = raw.departure?.actual || raw.departure?.scheduled || '';
             const arrEndIso = raw.arrival?.actual || raw.arrival?.estimated || raw.arrival?.scheduled || '';
@@ -7443,6 +7385,83 @@ const skyState = {
                 arrIso: raw.arrival?.estimated || '',
                 statusInsight: `Live Aviationstack Stream: ${depIata} -> ${arrIata} | Gate ${raw.departure?.gate || '--'} to Gate ${raw.arrival?.gate || '--'}.`
             };
+        }
+
+        // Primary search only; refresh paths use this, since a picker
+        // cannot be shown there (a saved flight's operating code hits
+        // directly).
+        async function skyFetchFlight(flightCode) {
+            const cleanCode = flightCode.trim().toUpperCase().replace(/\s+/g, '');
+            const apiKey = skyGetApiKey();
+            if (!apiKey) {
+                throw new Error('API Key required. Please set your Aviationstack key in Settings.');
+            }
+            const response = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${apiKey}&flight_iata=${cleanCode}`);
+            if (!response.ok) {
+                throw new Error(`Aviationstack HTTP Error: ${response.status}`);
+            }
+            const json = await response.json();
+            if (json.error) {
+                throw new Error(json.error.message || 'Aviationstack API error.');
+            }
+            if (!json.data || json.data.length === 0) {
+                throw new Error(`No flight records found for "${cleanCode}".`);
+            }
+            return skyBuildFlight(json.data[0], cleanCode);
+        }
+
+        // Candidate picker (v1.3.14): v1.3.13's codeshare match assumed
+        // Aviationstack carries a codeshare field — it does not (proven
+        // by AA5812 on 1.3.13: still "no records" even though PT5812
+        // exists), so that match could never succeed and was removed.
+        // Instead, when the ticket-code search is empty, search by
+        // flight number alone and offer every flight with that number
+        // today as a picker — the user taps the right route/time, and
+        // no flight is ever guessed. Records without a flight.iata are
+        // skipped; the list is sorted by scheduled departure, then
+        // route, so the wanted leg is easy to spot.
+        function skyParseFlightCandidates(data) {
+            if (!Array.isArray(data)) return [];
+            const out = [];
+            for (const r of data) {
+                const code = String(r.flight?.iata || '').toUpperCase();
+                if (!code) continue;
+                out.push(skyBuildFlight(r, code));
+            }
+            out.sort((a, b) => (a.depIso || '').localeCompare(b.depIso || '') || a.depIata.localeCompare(b.depIata) || a.arrIata.localeCompare(b.arrIata));
+            return out;
+        }
+
+        async function skyFetchFlightSearch(flightCode) {
+            const cleanCode = flightCode.trim().toUpperCase().replace(/\s+/g, '');
+            const apiKey = skyGetApiKey();
+            if (!apiKey) {
+                throw new Error('API Key required. Please set your Aviationstack key in Settings.');
+            }
+            const response = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${apiKey}&flight_iata=${cleanCode}`);
+            if (!response.ok) {
+                throw new Error(`Aviationstack HTTP Error: ${response.status}`);
+            }
+            const json = await response.json();
+            if (json.error) {
+                throw new Error(json.error.message || 'Aviationstack API error.');
+            }
+            if (json.data && json.data.length > 0) {
+                return { found: skyBuildFlight(json.data[0], cleanCode) };
+            }
+            const digits = cleanCode.replace(/[^0-9]/g, '');
+            if (digits) {
+                const fbResponse = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${apiKey}&flight_number=${digits}`);
+                if (fbResponse.ok) {
+                    const fbJson = await fbResponse.json();
+                    if (!fbJson.error && fbJson.data) {
+                        const candidates = skyParseFlightCandidates(fbJson.data);
+                        if (candidates.length === 1) return { found: candidates[0] };
+                        if (candidates.length > 0) return { candidates: candidates, searchedCode: cleanCode };
+                    }
+                }
+            }
+            throw new Error(`No flight records found for "${cleanCode}".`);
         }
 
         // 24-hour toggle (v1.3.1): formats from the stored ISO so the card,
@@ -7649,13 +7668,58 @@ const skyState = {
             skyShowToast('Cleared search history', 'info');
         }
 
+        let skyCandidateList = [];
+
+        function skyHideCandidatePicker() {
+            document.getElementById('sky-candidate-picker').classList.add('hidden');
+            document.getElementById('sky-candidate-picker').innerHTML = '';
+            skyCandidateList = [];
+        }
+
+        function skyRenderCandidatePicker(searchedCode, candidates) {
+            skyCandidateList = candidates;
+            const el = document.getElementById('sky-candidate-picker');
+            el.innerHTML = `<p class="text-xs font-bold text-gray-300">Flights numbered ${searchedCode} today:</p>` +
+                candidates.map((f, i) => `
+                    <button onclick="skySelectCandidate(${i})" class="w-full text-left px-3 py-2.5 rounded-xl sky-card-subtle border hover:opacity-80 transition-all">
+                        <span class="flex items-center justify-between gap-2">
+                            <span class="font-black text-sm">${f.flightIata}</span>
+                            <span class="font-mono text-xs font-bold">${skyDisplayTime(f, 'dep')}</span>
+                        </span>
+                        <span class="block text-[11px] text-gray-400">${f.depIata} → ${f.arrIata} · ${f.airlineName} · ${f.status}</span>
+                    </button>`).join('');
+            el.classList.remove('hidden');
+        }
+
+        window.skySelectCandidate = function(index) {
+            const flight = skyCandidateList[index];
+            if (!flight) return;
+            skyHideCandidatePicker();
+            skyState.currentFlight = flight;
+            skyRenderFlightCard(flight);
+            if (!skyState.searchHistory.includes(flight.flightIata)) {
+                skyState.searchHistory.unshift(flight.flightIata);
+                if (skyState.searchHistory.length > 5) skyState.searchHistory.pop();
+                skySaveState();
+                skyRenderSearchHistory();
+            }
+            skyShowToast(`Loaded live data for ${flight.flightIata}`, 'success');
+        };
+
         window.skyExecuteSearch = async function(flightCode) {
             const searchBtn = document.getElementById('sky-search-btn');
             searchBtn.disabled = true;
             searchBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i><span>Fetching...</span>`;
+            skyHideCandidatePicker();
 
             try {
-                const flight = await skyFetchFlight(flightCode);
+                const result = await skyFetchFlightSearch(flightCode);
+                if (result.candidates) {
+                    skyRenderCandidatePicker(result.searchedCode, result.candidates);
+                    skyShowToast('Several flights share that number — pick the right one', 'info');
+                    return;
+                }
+                const flight = result.found;
                 skyState.currentFlight = flight;
                 skyRenderFlightCard(flight);
 
