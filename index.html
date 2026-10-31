@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.15 -->
+<!-- Toolbox (Shawn Rodis) — Web Edition v1.3.16 -->
 <html lang="en" id="html-root" class="h-full w-full dark black selection:bg-indigo-500 selection:text-white overflow-x-hidden" data-accent="indigo">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Toolbox (Shawn Rodis)</title>
-    <meta name="version" content="1.3.15">
+    <meta name="version" content="1.3.16">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -1806,7 +1806,7 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-xs text-slate-900 dark:text-white">App Updates</h3>
-                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.15</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
+                                <p class="text-[10px] text-slate-400">This file is <span id="update-current">v1.3.16</span> · Toolbox checks GitHub once a day for new versions — the check sends nothing but the request itself</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap">
@@ -1818,7 +1818,7 @@
                     </div>
                 </div>
             </div>
-            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.15 · by Shawn Rodis</div>
+            <div class="text-center text-[11px] text-slate-400 dark:text-zinc-500 pb-2">Toolbox · Web Edition · Version 1.3.16 · by Shawn Rodis</div>
         </section>
 
 <section id="tab-skytrack" class="tab-content space-y-4 hidden relative">
@@ -7657,6 +7657,14 @@ const skyState = {
             `).join('');
         }
 
+        // Recents are capped at 3 (v1.3.16): a duplicate re-search leaves the
+        // order untouched; a new code goes first and the oldest drops off.
+        // Shared by direct search and the candidate picker.
+        function skyAddSearchHistory(history, code) {
+            if (history.includes(code)) return history;
+            return [code].concat(history).slice(0, 3);
+        }
+
         function skyRenderSearchHistory() {
             const container = document.getElementById('sky-search-history-chips');
             const clearBtn = document.getElementById('sky-clear-recents-btn');
@@ -7711,12 +7719,9 @@ const skyState = {
             skyHideCandidatePicker();
             skyState.currentFlight = flight;
             skyRenderFlightCard(flight);
-            if (!skyState.searchHistory.includes(flight.flightIata)) {
-                skyState.searchHistory.unshift(flight.flightIata);
-                if (skyState.searchHistory.length > 5) skyState.searchHistory.pop();
-                skySaveState();
-                skyRenderSearchHistory();
-            }
+            skyState.searchHistory = skyAddSearchHistory(skyState.searchHistory, flight.flightIata);
+            skySaveState();
+            skyRenderSearchHistory();
             skyShowToast(`Loaded live data for ${flight.flightIata}`, 'success');
         };
 
@@ -7737,12 +7742,9 @@ const skyState = {
                 skyState.currentFlight = flight;
                 skyRenderFlightCard(flight);
 
-                if (!skyState.searchHistory.includes(flight.flightIata)) {
-                    skyState.searchHistory.unshift(flight.flightIata);
-                    if (skyState.searchHistory.length > 5) skyState.searchHistory.pop();
-                    skySaveState();
-                    skyRenderSearchHistory();
-                }
+                skyState.searchHistory = skyAddSearchHistory(skyState.searchHistory, flight.flightIata);
+                skySaveState();
+                skyRenderSearchHistory();
 
                 skyShowToast(`Loaded live data for ${flight.flightIata}`, 'success');
             } catch (err) {
@@ -7784,7 +7786,7 @@ const skyState = {
                 try {
                     const parsed = JSON.parse(saved);
                     if (parsed.savedFlights) skyState.savedFlights = parsed.savedFlights;
-                    if (parsed.searchHistory) skyState.searchHistory = parsed.searchHistory;
+                    if (parsed.searchHistory) skyState.searchHistory = parsed.searchHistory.slice(0, 3);
                     if (parsed.use24h !== undefined) skyState.use24h = parsed.use24h;
                     // One-time migration (2026-10-06): the Aviationstack key moved
                     // to the toolbox's main Settings. Preserve a previously saved
