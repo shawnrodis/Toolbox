@@ -26,8 +26,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # No setup-android step on purpose: the first attempt used it and
+      # failed in its own sdkmanager license prompt. GitHub's
+      # ubuntu-latest runners already ship an Android SDK (ANDROID_HOME
+      # is set by the image), and Gradle picks that up directly.
       - name: Build debug APK
         run: |
           chmod +x gradlew
